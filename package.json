@@ -1,15 +1,24 @@
 {
-  "name": "conecta-unifesspa-backend",
+  "name": "query_builder",
   "version": "1.0.0",
-  "description": "",
+  "description": "Back-End unifesspa+",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "tsx watch api/server.ts",
+    "prisma": "prisma"
   },
-  "keywords": [],
-  "author": "",
+  "author": "Ketly, Luan, Marília e Paulo",
   "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^22.2.0",
+    "typescript": "^5.5.4"
+  },
   "dependencies": {
-    "typescript": "^5.9.2"
+    "@prisma/client": "^6.16.2",
+    "dotenv": "^17.2.2",
+    "fastify": "^5.6.0",
+    "postgres": "^3.4.7",
+    "prisma": "^6.16.2",
+    "tsx": "^4.17.0"
   }
 }

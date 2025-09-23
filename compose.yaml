@@ -1,7 +1,7 @@
 services:
   postgres-db:
     image: postgres:16
-    container_name: postgres_luan
+    container_name: bd_unifesspa
     restart: always
     ports:
       - "${DB_PORT:-5432}:5432"
@@ -11,3 +11,24 @@ services:
       POSTGRES_DB: ${DB_NAME}
     volumes:
       - ./data:/var/lib/postgresql/data
+    networks:
+      - internal
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin
+    user: root
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    volumes:
+       - ./volumes/pgadmin-data:/var/lib/pgadmin
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    networks:
+      - internal
+
+networks:
+  internal:
+    driver: bridge
