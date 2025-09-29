@@ -4,7 +4,7 @@
   "description": "Back-End unifesspa+",
   "main": "index.js",
   "scripts": {
-    "dev": "tsx watch api/server.ts",
+    "dev": "tsx watch --env-file .env api/server.ts",
     "prisma": "prisma"
   },
   "author": "Ketly, Luan, Marília e Paulo",
@@ -15,7 +15,6 @@
   },
   "dependencies": {
     "@prisma/client": "^6.16.2",
-    "dotenv": "^17.2.2",
     "fastify": "^5.6.0",
     "postgres": "^3.4.7",
     "prisma": "^6.16.2",
