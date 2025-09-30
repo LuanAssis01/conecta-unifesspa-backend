@@ -1,6 +1,7 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { prisma } from '../lib/prisma';
 import { UserRole } from '@prisma/client';
+import bcrypt from 'bcrypt';
 
 export const userController = {
   async create(request: FastifyRequest, reply: FastifyReply) {
@@ -16,12 +17,14 @@ export const userController = {
       if (!Object.values(UserRole).includes(role)) {
         return reply.status(400).send({ error: 'Invalid role' });
       }
+      
+      const hashedPassword = await bcrypt.hash(password, 10);
 
       const user = await prisma.user.create({
         data: {
           name,
           email,
-          password,
+          password: hashedPassword,
           role,
         },
       });
