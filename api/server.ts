@@ -1,6 +1,6 @@
 import Fastify from 'fastify';
 import { appRoutes } from './src/router/index.ts'; 
-import { prisma } from './src/lib/prisma.ts';
+import { prisma } from './src/lib/prisma';
 
 const server = Fastify({
   logger: true,

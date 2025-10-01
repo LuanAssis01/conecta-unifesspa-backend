@@ -10,14 +10,13 @@ export const userController = {
         name: string;
         email: string;
         password: string;
-        role: UserRole; // enum do Prisma
+        role: UserRole;
       };
 
-      // validação do enum
       if (!Object.values(UserRole).includes(role)) {
         return reply.status(400).send({ error: 'Invalid role' });
       }
-      
+
       const hashedPassword = await bcrypt.hash(password, 10);
 
       const user = await prisma.user.create({
@@ -29,9 +28,11 @@ export const userController = {
         },
       });
 
+      const { password: _, ...userWithoutPassword } = user;
+
       return reply.status(201).send({
         message: 'Usuário criado com sucesso',
-        user,
+        user: userWithoutPassword,
       });
     } catch (error) {
       console.error(error);
@@ -39,8 +40,39 @@ export const userController = {
     }
   },
 
+  async login(request: FastifyRequest, reply: FastifyReply) {
+    const { email, password } = request.body as {
+      email: string;
+      password: string;
+    };
 
+    if (!email || !password) {
+      return reply.status(400).send({
+        message: 'Email e senha são obrigatórios',
+      });
+    }
 
+    const user = await prisma.user.findUnique({
+      where: { email },
+    });
 
+    if (!user) {
+      return reply.status(401).send({ error: 'Usuário não encontrado' });
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+
+    if (!isPasswordValid) {
+      return reply.status(401).send({ error: 'Senha incorreta' });
+    }
+
+    const { password: _, ...userWithoutPassword } = user;
+
+    return reply.status(200).send({
+      message: 'Login realizado com sucesso',
+      user: userWithoutPassword,
+    });
+  },
 };
+
 
