@@ -16,8 +16,11 @@
   "dependencies": {
     "@prisma/client": "^6.16.2",
     "bcrypt": "^6.0.0",
+    "cloudinary": "^1.37.2",
     "fastify": "^5.6.0",
+    "fastify-multer": "^2.0.3",
     "jsonwebtoken": "^9.0.2",
+    "multer-storage-cloudinary": "^4.0.0",
     "postgres": "^3.4.7",
     "prisma": "^6.16.2",
     "tsx": "^4.17.0"
