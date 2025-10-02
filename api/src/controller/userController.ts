@@ -2,6 +2,7 @@ import { FastifyRequest, FastifyReply } from 'fastify';
 import { prisma } from '../lib/prisma';
 import { UserRole } from '@prisma/client';
 import bcrypt from 'bcrypt';
+import { generateToken } from '../auth/jwt'
 
 export const userController = {
   async create(request: FastifyRequest, reply: FastifyReply) {
@@ -12,6 +13,13 @@ export const userController = {
         password: string;
         role: UserRole;
       };
+
+      const existingUser = await prisma.user.findUnique({ where: { email } });
+
+      if (existingUser) {
+        return reply.status(400).send({ error: 'Email já está em uso' });
+      }
+
 
       if (!Object.values(UserRole).includes(role)) {
         return reply.status(400).send({ error: 'Invalid role' });
@@ -66,11 +74,21 @@ export const userController = {
       return reply.status(401).send({ error: 'Senha incorreta' });
     }
 
+    const token = generateToken({
+    sub: user.id,
+    email: user.email,
+    role: user.role,
+    });
+
     const { password: _, ...userWithoutPassword } = user;
 
     return reply.status(200).send({
+      success: true,
       message: 'Login realizado com sucesso',
-      user: userWithoutPassword,
+      data: {
+        token,
+        user: userWithoutPassword,
+      },
     });
   },
 };
