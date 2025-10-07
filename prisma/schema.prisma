@@ -28,61 +28,60 @@ enum UserRole {
   USER_COMUNITY
 }
 
-
 /// MODELS
+
 model Project {
-  id                   Int                @id @default(autoincrement())
-  name                 String
-  subtitle             String?
-  overview             String?
-  description          String?
-  expected_results     String?
-  start_date           DateTime
-  duration             DateTime
+  id                    String        @id @default(uuid())
+  name                  String
+  subtitle              String?
+  overview              String?
+  description           String?
+  expected_results      String?
+  start_date            DateTime
+  duration              DateTime
   proposal_document_url String?
-  img_url              String?
+  img_url               String?
   registration_form_url String?
-  numberVacancies      Int
-  status               ProjectStatus
-  audience             AudienceEnum
+  numberVacancies       Int
+  status                ProjectStatus
+  audience              AudienceEnum
 
   /// RELACIONAMENTOS
-  impactIndicators     ImpactIndicators[]
-  keywords             Keywords[]
-  course               Course?            @relation(fields: [courseId], references: [id])
-  courseId             Int?
+  impactIndicators ImpactIndicator[]
+  keywords         Keyword[]
+  course           Course?           @relation(fields: [courseId], references: [id])
+  courseId         String?
 
-  creator               User?              @relation(fields: [creatorId], references: [id])
-  creatorId             Int?
+  creator   User?   @relation(fields: [creatorId], references: [id])
+  creatorId String?
 }
 
 model Course {
-  id       Int       @id @default(autoincrement())
+  id       String    @id @default(uuid())
   name     String
   projects Project[]
 }
 
 model User {
-  id       Int      @id @default(autoincrement())
+  id       String    @id @default(uuid())
   name     String
-  email    String   @unique
+  email    String    @unique
   password String
   role     UserRole
   projects Project[]
 }
 
-model Keywords {
-  id       Int       @id @default(autoincrement())
-  name     String
-  project  Project?  @relation(fields: [projectid], references: [id])
-  projectid Int?
+model Keyword {
+  id        String   @id @default(uuid())
+  name      String
+  project   Project? @relation(fields: [projectId], references: [id])
+  projectId String?
 }
 
-model ImpactIndicators {
-  id       Int       @id @default(autoincrement())
-  title    String
-  value    Int
-  project  Project?  @relation(fields: [projectId], references: [id])
-  projectId Int?
+model ImpactIndicator {
+  id        String   @id @default(uuid())
+  title     String
+  value     Int
+  project   Project? @relation(fields: [projectId], references: [id])
+  projectId String?
 }
-
