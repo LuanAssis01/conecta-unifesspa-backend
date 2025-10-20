@@ -7,22 +7,16 @@ import { generateToken } from '../auth/jwt'
 export const userController = {
   async create(request: FastifyRequest, reply: FastifyReply) {
     try {
-      const { name, email, password, role } = request.body as {
+      const { name, email, password } = request.body as {
         name: string;
         email: string;
         password: string;
-        role: UserRole;
       };
 
       const existingUser = await prisma.user.findUnique({ where: { email } });
 
       if (existingUser) {
         return reply.status(400).send({ error: 'Email já está em uso' });
-      }
-
-
-      if (!Object.values(UserRole).includes(role)) {
-        return reply.status(400).send({ error: 'Invalid role' });
       }
 
       const hashedPassword = await bcrypt.hash(password, 10);
@@ -32,7 +26,7 @@ export const userController = {
           name,
           email,
           password: hashedPassword,
-          role,
+          role: UserRole.TEACHER
         },
       });
 
@@ -75,9 +69,9 @@ export const userController = {
     }
 
     const token = generateToken({
-    sub: user.id,
-    email: user.email,
-    role: user.role,
+      sub: user.id,
+      email: user.email,
+      role: user.role,
     });
 
     const { password: _, ...userWithoutPassword } = user;
@@ -92,5 +86,3 @@ export const userController = {
     });
   },
 };
-
-
