@@ -10,6 +10,12 @@ export const courseController = {
                 return reply.status(400).send({ error: 'Nome do curso é obrigatório' });
             }
 
+            const existingCourse = await prisma.course.findFirst({ where: { name } });
+
+            if (existingCourse) {
+                return reply.status(409).send({ error: 'Já existe um curso com esse nome' });
+            }
+
             const course = await prisma.course.create({ data: { name } });
             return reply.status(201).send({ message: 'Curso criado com sucesso', course });
         } catch (error) {
@@ -32,7 +38,10 @@ export const courseController = {
         try {
             const { id } = request.params as { id: string };
 
-            await prisma.course.delete({ where: { id: Number(id) } });
+            const course = await prisma.course.findUnique({ where: { id } });
+            if (!course) return reply.status(404).send({ error: 'Curso não encontrado' });
+
+            await prisma.course.delete({ where: { id } });
             return reply.status(200).send({ message: 'Curso deletado com sucesso' });
         } catch (error) {
             console.error(error);
