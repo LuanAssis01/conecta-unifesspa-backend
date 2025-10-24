@@ -38,7 +38,7 @@ model Project {
   description           String?
   expected_results      String?
   start_date            DateTime
-  duration              DateTime
+  duration              Int
   proposal_document_url String?
   img_url               String?
   registration_form_url String?
@@ -48,7 +48,7 @@ model Project {
 
   /// RELACIONAMENTOS
   impactIndicators ImpactIndicator[]
-  keywords         Keyword[]
+  keywords         Keyword[] @relation("ProjectKeywords")
   course           Course?           @relation(fields: [courseId], references: [id])
   courseId         String?
 
@@ -73,8 +73,8 @@ model User {
 
 model Keyword {
   id        String   @id @default(uuid())
-  name      String
-  project   Project? @relation(fields: [projectId], references: [id])
+  name      String   @unique
+  project   Project[] @relation("ProjectKeywords")
   projectId String?
 }
 
