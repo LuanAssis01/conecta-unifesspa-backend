@@ -34,6 +34,20 @@ export const courseController = {
         }
     },
 
+    async getById(request: FastifyRequest, reply: FastifyReply) {
+        try {
+            const { id } = request.params as { id: string };
+
+            const course = await prisma.course.findUnique({ where: { id } });
+            if (!course) return reply.status(404).send({ error: 'Curso não encontrado' });
+
+            return reply.status(200).send(course);
+        } catch (error) {
+            console.error(error);
+            return reply.status(500).send({ error: 'Erro ao buscar curso' });
+        }
+    },
+
     async delete(request: FastifyRequest, reply: FastifyReply) {
         try {
             const { id } = request.params as { id: string };
