@@ -75,7 +75,6 @@ model Keyword {
   id        String   @id @default(uuid())
   name      String   @unique
   project   Project[] @relation("ProjectKeywords")
-  projectId String?
 }
 
 model ImpactIndicator {
