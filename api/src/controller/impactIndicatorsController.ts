@@ -1,5 +1,6 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { prisma } from '../lib/prisma';
+import { UserRole } from "@prisma/client";
 
 export const impactIndicatorsController = {
     async create(request: FastifyRequest, reply: FastifyReply) {
@@ -11,6 +12,23 @@ export const impactIndicatorsController = {
 
             if (!indicators || !Array.isArray(indicators) || indicators.length === 0) {
                 return reply.status(400).send({ error: "Envie pelo menos um indicador" });
+            }
+
+            const project = await prisma.project.findUnique({ 
+                where: { id: projectId },
+                select: { creatorId: true } // Seleciona apenas o criador
+            });
+            
+            if (!project) {
+                 return reply.status(404).send({ error: "Projeto não encontrado" });
+            }
+
+            const { id: userId, role: userRole } = (request as any).user;
+            const isCreator = project.creatorId === userId;
+            const isAdmin = userRole === UserRole.ADMIN;
+
+            if (!isCreator && !isAdmin) {
+                 return reply.status(403).send({ error: "Acesso negado. Apenas o criador ou administrador podem adicionar indicadores." });
             }
 
             const createdIndicators = await Promise.all(
@@ -51,6 +69,27 @@ export const impactIndicatorsController = {
             const { indicatorId } = request.params as { indicatorId: string };
             const { title, value } = request.body as { title?: string; value?: number };
 
+            const indicatorWithProject = await prisma.impactIndicator.findUnique({
+                where: { id: indicatorId },
+                include: { project: { select: { creatorId: true } } }
+            });
+
+            if (!indicatorWithProject) {
+                return reply.status(404).send({ error: "Indicador não encontrado" });
+            }
+
+            if (!indicatorWithProject.project) {
+                return reply.status(400).send({ error: "Indicador não associado a um projeto válido." });
+            }
+
+            const { id: userId, role: userRole } = (request as any).user;
+            const isCreator = indicatorWithProject.project.creatorId === userId;
+            const isAdmin = userRole === UserRole.ADMIN;
+
+            if (!isCreator && !isAdmin) {
+                 return reply.status(403).send({ error: "Acesso negado. Apenas o criador ou administrador podem atualizar indicadores." });
+            }
+
             const indicator = await prisma.impactIndicator.update({
                 where: { id: indicatorId },
                 data: {
@@ -72,6 +111,27 @@ export const impactIndicatorsController = {
     async delete(request: FastifyRequest, reply: FastifyReply) {
         try {
             const { indicatorId } = request.params as { indicatorId: string };
+
+            const indicatorWithProject = await prisma.impactIndicator.findUnique({
+                where: { id: indicatorId },
+                include: { project: { select: { creatorId: true } } }
+            });
+
+            if (!indicatorWithProject) {
+                return reply.status(404).send({ error: "Indicador não encontrado" });
+            }
+
+            if (!indicatorWithProject.project) {
+                return reply.status(400).send({ error: "Indicador não associado a um projeto válido." });
+            }
+
+            const { id: userId, role: userRole } = (request as any).user;
+            const isCreator = indicatorWithProject.project.creatorId === userId;
+            const isAdmin = userRole === UserRole.ADMIN;
+
+            if (!isCreator && !isAdmin) {
+                 return reply.status(403).send({ error: "Acesso negado. Apenas o criador ou administrador podem deletar indicadores." });
+            }
 
             await prisma.impactIndicator.delete({
                 where: { id: indicatorId },
