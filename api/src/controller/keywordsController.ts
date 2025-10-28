@@ -1,5 +1,6 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { prisma } from '../lib/prisma';
+import { UserRole } from '@prisma/client';
 
 export const keywordsController = {
     async create(request: FastifyRequest, reply: FastifyReply) {
@@ -11,8 +12,20 @@ export const keywordsController = {
                 return reply.status(400).send({ error: "Keywords são obrigatórias" });
             }
 
-            const project = await prisma.project.findUnique({ where: { id: projectId } });
+            const project = await prisma.project.findUnique({ 
+                where: { id: projectId }, 
+                select: { creatorId: true } 
+            });
+
             if (!project) return reply.status(404).send({ error: "Projeto não encontrado" });
+
+            const { id: userId, role: userRole } = (request as any).user;
+            const isCreator = project.creatorId === userId;
+            const isAdmin = userRole === UserRole.ADMIN;
+
+            if (!isCreator && !isAdmin) {
+                 return reply.status(403).send({ error: "Acesso negado. Apenas o criador ou administrador podem modificar as palavras-chave." });
+            }
 
             const createdKeywords = [];
 
