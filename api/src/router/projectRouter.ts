@@ -8,7 +8,7 @@ export async function projectRoutes(app: FastifyInstance) {
   const adminHook = { preHandler: [isAdmin] };
 
   app.post("/projects", authenticatedHook, projectController.create);
-  app.get("/projects", projectController.getAll);
+  app.get("/projects", adminHook, projectController.getAll);
   app.get("/projects/:id", projectController.getById);
   app.put("/projects/:id", authenticatedHook, projectController.update);
   app.delete("/projects/:id", authenticatedHook, projectController.delete);

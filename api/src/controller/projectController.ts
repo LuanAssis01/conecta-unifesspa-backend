@@ -3,7 +3,7 @@ import { FileService } from "../services/FileService";
 import { prisma } from "../lib/prisma";
 import { v2 as cloudinary } from "cloudinary";
 import crypto from "crypto";
-import { AudienceEnum, ProjectStatus } from "@prisma/client";
+import { AudienceEnum, ProjectStatus, UserRole } from "@prisma/client";
 
 // Configuração do Cloudinary
 cloudinary.config({
@@ -17,6 +17,8 @@ const fileService = new FileService();
 export const projectController = {
   async create(request: FastifyRequest, reply: FastifyReply) {
     try {
+      const creatorIdFromToken = request.user.id;
+
       const {
         name,
         description,
@@ -25,11 +27,10 @@ export const projectController = {
         duration,
         numberVacancies,
         audience,
-        courseId,
-        creatorId
+        courseId
       } = request.body as any;
 
-      const requiredFields = ["name", "description", "expected_results", "start_date", "duration", "numberVacancies", "audience", "courseId", "creatorId"];
+      const requiredFields = ["name", "description", "expected_results", "start_date", "duration", "numberVacancies", "audience", "courseId"];
       const missingFields = requiredFields.filter(field => !(request.body as any)[field]);
 
       if (missingFields.length > 0) {
@@ -46,7 +47,7 @@ export const projectController = {
           numberVacancies: Number(numberVacancies),
           audience: audience as AudienceEnum,
           courseId,
-          creatorId,
+          creatorId: creatorIdFromToken,
           status: ProjectStatus.SUBMITTED,
         },
       });
@@ -122,8 +123,17 @@ export const projectController = {
   async update(request: FastifyRequest, reply: FastifyReply) {
     try {
       const { id } = request.params as { id: string };
+      const { id: userId, role: userRole } = request.user;
+
       const existing = await prisma.project.findUnique({ where: { id } });
       if (!existing) return reply.status(404).send({ error: "Projeto não encontrado" });
+
+      const isCreator = existing.creatorId === userId;
+      const isAdmin = userRole === UserRole.ADMIN;
+
+      if (!isCreator && !isAdmin) {
+        return reply.status(403).send({ error: "Acesso negado. Ação permitida apenas ao criador ou administrador." });   
+      };
 
       /* if (existing.status !== ProjectStatus.APPROVED && existing.status !== ProjectStatus.ACTIVE) {
         return reply.status(403).send({ error: "Projeto não pode ser editado" });
@@ -158,8 +168,18 @@ export const projectController = {
   async delete(request: FastifyRequest, reply: FastifyReply) {
     try {
       const { id } = request.params as { id: string };
+
+      const { id: userId, role: userRole } = request.user;
+
       const existing = await prisma.project.findUnique({ where: { id } });
       if (!existing) return reply.status(404).send({ error: "Projeto não encontrado" });
+
+      const isCreator = existing.creatorId === userId;
+      const isAdmin = userRole === UserRole.ADMIN;
+
+      if (!isCreator && !isAdmin) {
+        return reply.status(403).send({ error: "Acesso negado. Ação permitida apenas ao criador ou administrador." });   
+      }
 
       if (existing.proposal_document_url) await fileService.deleteFile(existing.proposal_document_url);
       if (existing.img_url) await fileService.deleteFile(existing.img_url);
@@ -178,6 +198,14 @@ export const projectController = {
       const { id } = request.params as { id: string };
       const project = await prisma.project.findUnique({ where: { id } });
       if (!project) return reply.status(404).send({ error: "Projeto não encontrado" });
+
+      const { id: userId, role: userRole } = request.user;
+
+      const isCreator = project.creatorId === userId;
+
+      if (!isCreator) {
+        return reply.status(403).send({ error: "Acesso negado." });   
+      }
 
       for await (const part of request.parts()) {
         if (part.type === "file") {
@@ -209,6 +237,15 @@ export const projectController = {
       const { id } = request.params as { id: string };
       const project = await prisma.project.findUnique({ where: { id } });
       if (!project) return reply.status(404).send({ error: "Projeto não encontrado" });
+
+      const { id: userId, role: userRole } = request.user;
+
+      const isCreator = project.creatorId === userId;
+      const isAdmin = userRole === UserRole.ADMIN;
+
+      if (!isCreator && !isAdmin) {
+        return reply.status(403).send({ error: "Acesso negado. Ação permitida apenas ao criador ou administrador." });   
+      }
 
       for await (const part of request.parts()) {
         if (part.type === "file") {
