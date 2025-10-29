@@ -5,7 +5,11 @@
   "main": "index.js",
   "scripts": {
     "dev": "tsx watch --env-file .env api/server.ts",
-    "prisma": "prisma"
+    "prisma": "prisma",
+    "seed": "tsx prisma/seed.ts"
+  },
+   "prisma": {
+    "seed": "tsx prisma/seed.ts"
   },
   "author": "Ketly, Luan, Marília e Paulo",
   "license": "ISC",
