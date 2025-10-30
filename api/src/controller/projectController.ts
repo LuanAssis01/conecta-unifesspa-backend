@@ -88,6 +88,70 @@ export const projectController = {
     }
   },
 
+  async getAllFiltered(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      const { keywords, course, status, search } = request.query as {
+        keywords?: string,
+        course?: string,
+        status?: string,
+        search?: string
+      };
+
+      const filters: any = {}
+
+      filters.status = { in: ["ACTIVE", "FINISHED"] };
+
+      if (status && ["ACTIVE", "FINISHED"].includes(status.toUpperCase())) {
+        filters.status = status.toUpperCase();
+      }
+
+      if (keywords) {
+        const keywordIds = keywords
+          .split(",")
+          .map((id) => id.trim());
+        filters.keywords = {
+          some: { id: { in: keywordIds } }
+        };
+      }
+
+      if (course) {
+        filters.courseId = course;
+      }
+
+      if (status) {
+        filters.status = status as any;
+      }
+
+      if (search) {
+        filters.name = { contains: search, mode: "insensitive" };
+      }
+
+      const projects = await prisma.project.findMany({
+        where: filters,
+        include: {
+          course: true,
+          creator: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            }
+          },
+          keywords: true,
+          impactIndicators: true,
+        },
+        orderBy: { id: "desc" },
+      });
+
+      return reply.status(200).send(projects);
+    } catch (error) {
+      console.error(error);
+      return reply.status(500).send({
+        error: "Erro ao buscar projetos"
+      });
+    }
+  },
+
   async getById(request: FastifyRequest, reply: FastifyReply) {
     try {
       const { id } = request.params as { id: string };
@@ -132,12 +196,12 @@ export const projectController = {
       const isAdmin = userRole === UserRole.ADMIN;
 
       if (!isCreator && !isAdmin) {
-        return reply.status(403).send({ error: "Acesso negado. Ação permitida apenas ao criador ou administrador." });   
+        return reply.status(403).send({ error: "Acesso negado. Ação permitida apenas ao criador ou administrador." });
       };
 
-      /* if (existing.status !== ProjectStatus.APPROVED && existing.status !== ProjectStatus.ACTIVE) {
+      if (existing.status !== ProjectStatus.APPROVED && existing.status !== ProjectStatus.ACTIVE) {
         return reply.status(403).send({ error: "Projeto não pode ser editado" });
-      } */
+      }
 
       const fields = request.body as any;
 
@@ -178,7 +242,7 @@ export const projectController = {
       const isAdmin = userRole === UserRole.ADMIN;
 
       if (!isCreator && !isAdmin) {
-        return reply.status(403).send({ error: "Acesso negado. Ação permitida apenas ao criador ou administrador." });   
+        return reply.status(403).send({ error: "Acesso negado. Ação permitida apenas ao criador ou administrador." });
       }
 
       if (existing.proposal_document_url) await fileService.deleteFile(existing.proposal_document_url);
@@ -204,7 +268,7 @@ export const projectController = {
       const isCreator = project.creatorId === userId;
 
       if (!isCreator) {
-        return reply.status(403).send({ error: "Acesso negado." });   
+        return reply.status(403).send({ error: "Acesso negado." });
       }
 
       for await (const part of request.parts()) {
@@ -244,7 +308,7 @@ export const projectController = {
       const isAdmin = userRole === UserRole.ADMIN;
 
       if (!isCreator && !isAdmin) {
-        return reply.status(403).send({ error: "Acesso negado. Ação permitida apenas ao criador ou administrador." });   
+        return reply.status(403).send({ error: "Acesso negado. Ação permitida apenas ao criador ou administrador." });
       }
 
       for await (const part of request.parts()) {
