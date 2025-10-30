@@ -271,6 +271,10 @@ export const projectController = {
         return reply.status(403).send({ error: "Acesso negado." });
       }
 
+      if (project.status !== ProjectStatus.APPROVED && project.status !== ProjectStatus.ACTIVE) {
+        return reply.status(403).send({ error: "Projeto não pode ser editado" });
+      }
+
       for await (const part of request.parts()) {
         if (part.type === "file") {
           // sempre PDF aqui
@@ -309,6 +313,10 @@ export const projectController = {
 
       if (!isCreator && !isAdmin) {
         return reply.status(403).send({ error: "Acesso negado. Ação permitida apenas ao criador ou administrador." });
+      }
+
+      if (project.status !== ProjectStatus.APPROVED && project.status !== ProjectStatus.ACTIVE) {
+        return reply.status(403).send({ error: "Projeto não pode ser editado" });
       }
 
       for await (const part of request.parts()) {
