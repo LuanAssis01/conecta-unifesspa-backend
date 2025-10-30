@@ -85,4 +85,53 @@ export const userController = {
       },
     });
   },
+
+  async update(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      const { name, email, password } = request.body as {
+        name?: string;
+        email?: string;
+        password?: string;
+      };
+
+      const { id: userIdFromToken } = request.user;
+
+      const existingUser = await prisma.user.findUnique({ where: { id: userIdFromToken } });
+      if (!existingUser) {
+        return reply.status(404).send({ error: 'Usuário não encontrado' });
+      }
+
+      let hashedPassword = existingUser.password;
+      if (password) {
+        hashedPassword = await bcrypt.hash(password, 10);
+      }
+
+      // Evita duplicidade de e-mail
+      if (email && email !== existingUser.email) {
+        const emailInUse = await prisma.user.findUnique({ where: { email } });
+        if (emailInUse) {
+          return reply.status(400).send({ error: 'Email já está em uso' });
+        }
+      }
+
+      const updatedUser = await prisma.user.update({
+        where: { id: userIdFromToken },
+        data: {
+          name: name ?? existingUser.name,
+          email: email ?? existingUser.email,
+          password: hashedPassword,
+        },
+      });
+
+      const { password: _, ...userWithoutPassword } = updatedUser;
+
+      return reply.status(200).send({
+        message: 'Perfil atualizado com sucesso',
+        user: userWithoutPassword,
+      });
+    } catch (error) {
+      console.error(error);
+      return reply.status(500).send({ error: 'Erro ao atualizar perfil' });
+    }
+  }
 };
