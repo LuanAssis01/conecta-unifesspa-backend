@@ -24,4 +24,5 @@ export async function projectRoutes(app: FastifyInstance) {
     projectController.updateImage
   );
   app.patch("/projects/:id/status", adminHook, projectController.updateStatus);
+  app.get("/projects/metrics", adminHook, projectController.getMetrics);
 }
