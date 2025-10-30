@@ -362,7 +362,28 @@ export const projectController = {
       console.error(error);
       return reply.status(500).send({ error: "Erro ao atualizar status do projeto" });
     }
-  }
+  },
 
+  async getMetrics(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      const total = await prisma.project.count();
+      const active = await prisma.project.count({
+        where: { status: ProjectStatus.ACTIVE }
+      });
+      const finished = await prisma.project.count({
+        where: { status: ProjectStatus.FINISHED }
+      });
+
+      return reply.status(200).send({
+        total,
+        active,
+        finished,
+        inactive: total - (active + finished) // opcional: se quiser ver quantos estão em outros status
+      });
+    } catch (error) {
+      console.error(error);
+      return reply.status(500).send({ error: "Erro ao buscar métricas de projetos" });
+    }
+  }
 };
 
