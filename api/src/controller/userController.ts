@@ -69,7 +69,7 @@ export const userController = {
     }
 
     const token = generateToken({
-      sub: user.id,
+      id: user.id,
       email: user.email,
       role: user.role,
     });
