@@ -133,5 +133,41 @@ export const userController = {
       console.error(error);
       return reply.status(500).send({ error: 'Erro ao atualizar perfil' });
     }
-  }
+  },
+
+  async getAll(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      const users = await prisma.user.findMany({
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true
+        },
+      });
+
+      return reply.status(200).send(users);
+    } catch (error) {
+      console.error(error);
+      return reply.status(500).send({ error: 'Erro ao buscar usuários' });
+    }
+  },
+
+  async delete(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      const { id } = request.params as { id: string };
+
+      const user = await prisma.user.findUnique({ where: { id } });
+      if (!user) {
+        return reply.status(404).send({ error: 'Usuário não encontrado' });
+      }
+
+      await prisma.user.delete({ where: { id } });
+
+      return reply.status(200).send({ message: 'Usuário deletado com sucesso' });
+    } catch (error) {
+      console.error(error);
+      return reply.status(500).send({ error: 'Erro ao deletar usuário' });
+    }
+  },
 };
