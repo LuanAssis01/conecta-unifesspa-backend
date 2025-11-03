@@ -10,4 +10,6 @@ export function userRoutes(app: FastifyInstance) {
   app.post("/user", adminHook, userController.create);
   app.post("/login", userController.login);
   app.put("/profile", authenticatedHook, userController.update);
+  app.get("/users", adminHook, userController.getAll);
+  app.delete("/user/:id", adminHook, userController.delete);
 }
