@@ -1,8 +1,6 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
-import { prisma } from '../lib/prisma';
-import { UserRole } from '@prisma/client';
-import bcrypt from 'bcrypt';
-import { generateToken } from '../auth/jwt'
+import { userService } from '../services/userService';
+import { ResponseHandler } from '../utils/responseHandler';
 
 export const userController = {
   async create(request: FastifyRequest, reply: FastifyReply) {
@@ -13,77 +11,43 @@ export const userController = {
         password: string;
       };
 
-      const existingUser = await prisma.user.findUnique({ where: { email } });
+      const user = await userService.create({ name, email, password });
 
-      if (existingUser) {
-        return reply.status(400).send({ error: 'Email já está em uso' });
+      return ResponseHandler.created(reply, 'Usuário criado com sucesso', { user });
+    } catch (error: any) {
+      console.error(error);
+
+      if (error.message === 'E-mail já cadastrado') {
+        return ResponseHandler.badRequest(reply, 'Requisição inválida', error.message);
       }
 
-      const hashedPassword = await bcrypt.hash(password, 10);
-
-      const user = await prisma.user.create({
-        data: {
-          name,
-          email,
-          password: hashedPassword,
-          role: UserRole.TEACHER
-        },
-      });
-
-      const { password: _, ...userWithoutPassword } = user;
-
-      return reply.status(201).send({
-        message: 'Usuário criado com sucesso',
-        user: userWithoutPassword,
-      });
-    } catch (error) {
-      console.error(error);
-      return reply.status(500).send({ error: 'Problema interno' });
+      return ResponseHandler.internalError(reply, 'Erro ao criar usuário', error.message);
     }
   },
 
   async login(request: FastifyRequest, reply: FastifyReply) {
-    const { email, password } = request.body as {
-      email: string;
-      password: string;
-    };
+    try {
+      const { email, password } = request.body as {
+        email: string;
+        password: string;
+      };
 
-    if (!email || !password) {
-      return reply.status(400).send({
-        message: 'Email e senha são obrigatórios',
-      });
+      const result = await userService.login({ email, password });
+
+      return ResponseHandler.ok(reply, 'Login realizado com sucesso', result);
+    } catch (error: any) {
+      console.error(error);
+
+      if (error.message === 'E-mail e senha são obrigatórios') {
+        return ResponseHandler.badRequest(reply, 'Requisição inválida', error.message);
+      }
+
+      if (error.message === 'E-mail ou senha inválidos') {
+        return ResponseHandler.unauthorized(reply, 'Credenciais inválidas', error.message);
+      }
+
+      return ResponseHandler.internalError(reply, 'Erro ao realizar login', error.message);
     }
-
-    const user = await prisma.user.findUnique({
-      where: { email },
-    });
-
-    if (!user) {
-      return reply.status(401).send({ error: 'Usuário não encontrado' });
-    }
-
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-
-    if (!isPasswordValid) {
-      return reply.status(401).send({ error: 'Senha incorreta' });
-    }
-
-    const token = generateToken({
-      id: user.id,
-      email: user.email,
-      role: user.role,
-    });
-
-    const { password: _, ...userWithoutPassword } = user;
-
-    return reply.status(200).send({
-      success: true,
-      message: 'Login realizado com sucesso',
-      data: {
-        token,
-        user: userWithoutPassword,
-      },
-    });
   },
 
   async update(request: FastifyRequest, reply: FastifyReply) {
@@ -96,60 +60,32 @@ export const userController = {
 
       const { id: userIdFromToken } = request.user;
 
-      const existingUser = await prisma.user.findUnique({ where: { id: userIdFromToken } });
-      if (!existingUser) {
-        return reply.status(404).send({ error: 'Usuário não encontrado' });
-      }
+      const user = await userService.update(userIdFromToken, { name, email, password });
 
-      let hashedPassword = existingUser.password;
-      if (password) {
-        hashedPassword = await bcrypt.hash(password, 10);
-      }
-
-      // Evita duplicidade de e-mail
-      if (email && email !== existingUser.email) {
-        const emailInUse = await prisma.user.findUnique({ where: { email } });
-        if (emailInUse) {
-          return reply.status(400).send({ error: 'Email já está em uso' });
-        }
-      }
-
-      const updatedUser = await prisma.user.update({
-        where: { id: userIdFromToken },
-        data: {
-          name: name ?? existingUser.name,
-          email: email ?? existingUser.email,
-          password: hashedPassword,
-        },
-      });
-
-      const { password: _, ...userWithoutPassword } = updatedUser;
-
-      return reply.status(200).send({
-        message: 'Perfil atualizado com sucesso',
-        user: userWithoutPassword,
-      });
-    } catch (error) {
+      return ResponseHandler.ok(reply, 'Usuário atualizado com sucesso', { user });
+    } catch (error: any) {
       console.error(error);
-      return reply.status(500).send({ error: 'Erro ao atualizar perfil' });
+
+      if (error.message === 'Usuário não encontrado') {
+        return ResponseHandler.notFound(reply, 'Recurso não encontrado', error.message);
+      }
+
+      if (error.message === 'E-mail já cadastrado') {
+        return ResponseHandler.badRequest(reply, 'Requisição inválida', error.message);
+      }
+
+      return ResponseHandler.internalError(reply, 'Erro ao atualizar usuário', error.message);
     }
   },
 
   async getAll(request: FastifyRequest, reply: FastifyReply) {
     try {
-      const users = await prisma.user.findMany({
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          role: true
-        },
-      });
+      const users = await userService.getAll();
 
-      return reply.status(200).send(users);
-    } catch (error) {
+      return ResponseHandler.ok(reply, 'Usuários recuperados com sucesso', { users });
+    } catch (error: any) {
       console.error(error);
-      return reply.status(500).send({ error: 'Erro ao buscar usuários' });
+      return ResponseHandler.internalError(reply, 'Erro ao buscar usuários', error.message);
     }
   },
 
@@ -157,17 +93,17 @@ export const userController = {
     try {
       const { id } = request.params as { id: string };
 
-      const user = await prisma.user.findUnique({ where: { id } });
-      if (!user) {
-        return reply.status(404).send({ error: 'Usuário não encontrado' });
+      await userService.delete(id);
+
+      return ResponseHandler.ok(reply, 'Usuário deletado com sucesso');
+    } catch (error: any) {
+      console.error(error);
+
+      if (error.message === 'Usuário não encontrado') {
+        return ResponseHandler.notFound(reply, 'Recurso não encontrado', error.message);
       }
 
-      await prisma.user.delete({ where: { id } });
-
-      return reply.status(200).send({ message: 'Usuário deletado com sucesso' });
-    } catch (error) {
-      console.error(error);
-      return reply.status(500).send({ error: 'Erro ao deletar usuário' });
+      return ResponseHandler.internalError(reply, 'Erro ao deletar usuário', error.message);
     }
   },
 };

@@ -1,16 +1,8 @@
 import { FastifyRequest, FastifyReply } from "fastify";
 import { FileService } from "../services/FileService";
-import { prisma } from "../lib/prisma";
-import { v2 as cloudinary } from "cloudinary";
-import crypto from "crypto";
-import { AudienceEnum, ProjectStatus, UserRole } from "@prisma/client";
-
-// Configuração do Cloudinary
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
+import { projectService } from "../services/projectService";
+import { ResponseHandler } from "../utils/responseHandler";
+import { AudienceEnum, ProjectStatus } from "@prisma/client";
 
 const fileService = new FileService();
 
@@ -30,125 +22,69 @@ export const projectController = {
         courseId
       } = request.body as any;
 
-      const requiredFields = ["name", "description", "expected_results", "start_date", "duration", "numberVacancies", "audience", "courseId"];
-      const missingFields = requiredFields.filter(field => !(request.body as any)[field]);
-
-      if (missingFields.length > 0) {
-        return reply.status(400).send({ error: `Campos obrigatórios ausentes: ${missingFields.join(", ")}` });
-      }
-
-      const project = await prisma.project.create({
-        data: {
-          name,
-          description,
-          expected_results,
-          start_date: new Date(start_date),
-          duration: Number(duration),
-          numberVacancies: Number(numberVacancies),
-          audience: audience as AudienceEnum,
-          courseId,
-          creatorId: creatorIdFromToken,
-          status: ProjectStatus.SUBMITTED,
-        },
+      const project = await projectService.create({
+        name,
+        description,
+        expected_results,
+        start_date,
+        duration,
+        numberVacancies,
+        audience: audience as AudienceEnum,
+        courseId,
+        creatorId: creatorIdFromToken,
       });
 
-      return reply.status(201).send({
-        message: "Projeto criado com sucesso",
-        project,
-      });
-    } catch (error) {
+      return ResponseHandler.created(reply, "Projeto criado com sucesso", { project });
+    } catch (error: any) {
       console.error(error);
-      return reply.status(500).send({ error: "Erro ao criar projeto" });
+      
+      if (error.message?.startsWith('Campos obrigatórios')) {
+        return ResponseHandler.badRequest(reply, 'Requisição inválida', error.message);
+      }
+      
+      if (error.message === 'Curso não encontrado ou inválido') {
+        return ResponseHandler.badRequest(reply, 'Requisição inválida', error.message);
+      }
+      
+      if (error.message === 'Já existe um projeto com esses dados') {
+        return ResponseHandler.conflict(reply, 'Recurso já existe', error.message);
+      }
+      
+      // Erro genérico com detalhes do erro original
+      return ResponseHandler.internalError(reply, "Erro ao criar projeto", error.message || 'Erro desconhecido');
     }
   },
 
   async getAll(request: FastifyRequest, reply: FastifyReply) {
     try {
-      const projects = await prisma.project.findMany({
-        include: {
-          course: true,
-          creator: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              role: true
-            }
-          },
-          keywords: true,
-          impactIndicators: true,
-        },
-        orderBy: { id: "desc" },
-      });
-
-      return reply.status(200).send(projects);
-    } catch (error) {
+      const projects = await projectService.getAll();
+      return ResponseHandler.ok(reply, "Projetos recuperados com sucesso", { projects });
+    } catch (error: any) {
       console.error(error);
-      return reply.status(500).send({ error: "Erro ao buscar projetos" });
+      return ResponseHandler.internalError(reply, "Erro ao buscar projetos", error.message);
     }
   },
 
   async getAllFiltered(request: FastifyRequest, reply: FastifyReply) {
     try {
       const { keywords, course, status, search } = request.query as {
-        keywords?: string,
-        course?: string,
-        status?: string,
-        search?: string
+        keywords?: string;
+        course?: string;
+        status?: string;
+        search?: string;
       };
 
-      const filters: any = {}
-
-      filters.status = { in: ["ACTIVE", "FINISHED"] };
-
-      if (status && ["ACTIVE", "FINISHED"].includes(status.toUpperCase())) {
-        filters.status = status.toUpperCase();
-      }
-
-      if (keywords) {
-        const keywordIds = keywords
-          .split(",")
-          .map((id) => id.trim());
-        filters.keywords = {
-          some: { id: { in: keywordIds } }
-        };
-      }
-
-      if (course) {
-        filters.courseId = course;
-      }
-
-      if (status) {
-        filters.status = status as any;
-      }
-
-      if (search) {
-        filters.name = { contains: search, mode: "insensitive" };
-      }
-
-      const projects = await prisma.project.findMany({
-        where: filters,
-        include: {
-          course: true,
-          creator: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-            }
-          },
-          keywords: true,
-          impactIndicators: true,
-        },
-        orderBy: { id: "desc" },
+      const projects = await projectService.getAllFiltered({
+        keywords,
+        course,
+        status,
+        search,
       });
 
-      return reply.status(200).send(projects);
+      return ResponseHandler.ok(reply, "Projetos filtrados recuperados com sucesso", { projects });
     } catch (error) {
       console.error(error);
-      return reply.status(500).send({
-        error: "Erro ao buscar projetos"
-      });
+      return ResponseHandler.internalError(reply, "Erro ao buscar projetos");
     }
   },
 
@@ -156,31 +92,16 @@ export const projectController = {
     try {
       const { id } = request.params as { id: string };
 
-      const project = await prisma.project.findUnique({
-        where: { id },
-        include: {
-          course: true,
-          creator: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              role: true
-            }
-          },
-          keywords: true,
-          impactIndicators: true,
-        },
-      });
+      const project = await projectService.getById(id);
 
       if (!project) {
-        return reply.status(404).send({ error: "Projeto não encontrado" });
+        return ResponseHandler.notFound(reply, "Recurso não encontrado", "Projeto não encontrado");
       }
 
-      return reply.status(200).send(project);
-    } catch (error) {
+      return ResponseHandler.ok(reply, "Projeto recuperado com sucesso", { project });
+    } catch (error: any) {
       console.error(error);
-      return reply.status(500).send({ error: "Erro ao buscar projeto" });
+      return ResponseHandler.internalError(reply, "Erro ao buscar projeto", error.message);
     }
   },
 
@@ -188,159 +109,141 @@ export const projectController = {
     try {
       const { id } = request.params as { id: string };
       const { id: userId, role: userRole } = request.user;
-
-      const existing = await prisma.project.findUnique({ where: { id } });
-      if (!existing) return reply.status(404).send({ error: "Projeto não encontrado" });
-
-      const isCreator = existing.creatorId === userId;
-      const isAdmin = userRole === UserRole.ADMIN;
-
-      if (!isCreator && !isAdmin) {
-        return reply.status(403).send({ error: "Acesso negado. Ação permitida apenas ao criador ou administrador." });
-      };
-
-      if (existing.status !== ProjectStatus.APPROVED && existing.status !== ProjectStatus.ACTIVE) {
-        return reply.status(403).send({ error: "Projeto não pode ser editado" });
-      }
-
       const fields = request.body as any;
 
-      const updatedProject = await prisma.project.update({
-        where: { id },
-        data: {
-          name: fields.name ?? existing.name,
-          description: fields.description ?? existing.description,
-          expected_results: fields.expected_results ?? existing.expected_results,
-          start_date: fields.start_date ? new Date(fields.start_date) : existing.start_date,
-          duration: fields.duration ? Number(fields.duration) : existing.duration,
-          numberVacancies: fields.numberVacancies ? Number(fields.numberVacancies) : existing.numberVacancies,
-          audience: fields.audience ? (fields.audience as AudienceEnum) : existing.audience,
-          subtitle: fields.subtitle ?? existing.subtitle,
-          overview: fields.overview ?? existing.overview,
-          registration_form_url: fields.registration_form_url ?? existing.registration_form_url,
-          status: fields.status ?? existing.status,
-        },
+      const updatedProject = await projectService.update({
+        projectId: id,
+        userId,
+        userRole,
+        fields,
       });
 
-      return reply.status(200).send({ message: "Projeto atualizado com sucesso", project: updatedProject });
-    } catch (error) {
+      return ResponseHandler.ok(reply, "Projeto atualizado com sucesso", { project: updatedProject });
+    } catch (error: any) {
       console.error(error);
-      return reply.status(500).send({ error: "Erro ao atualizar projeto" });
+      
+      if (error.message === 'Projeto não encontrado') {
+        return ResponseHandler.notFound(reply, "Recurso não encontrado", error.message);
+      }
+      
+      if (error.message === 'Acesso negado' || error.message?.includes('não pode ser editado')) {
+        return ResponseHandler.forbidden(reply, "Acesso negado", error.message);
+      }
+      
+      return ResponseHandler.internalError(reply, "Erro ao atualizar projeto", error.message);
     }
   },
 
   async delete(request: FastifyRequest, reply: FastifyReply) {
     try {
       const { id } = request.params as { id: string };
-
       const { id: userId, role: userRole } = request.user;
 
-      const existing = await prisma.project.findUnique({ where: { id } });
-      if (!existing) return reply.status(404).send({ error: "Projeto não encontrado" });
+      const { proposal_document_url, img_url } = await projectService.delete({
+        projectId: id,
+        userId,
+        userRole,
+      });
 
-      const isCreator = existing.creatorId === userId;
-      const isAdmin = userRole === UserRole.ADMIN;
+      if (proposal_document_url) await fileService.deleteFile(proposal_document_url);
+      if (img_url) await fileService.deleteFile(img_url);
 
-      if (!isCreator && !isAdmin) {
-        return reply.status(403).send({ error: "Acesso negado. Ação permitida apenas ao criador ou administrador." });
-      }
-
-      if (existing.proposal_document_url) await fileService.deleteFile(existing.proposal_document_url);
-      if (existing.img_url) await fileService.deleteFile(existing.img_url);
-
-      await prisma.project.delete({ where: { id } });
-
-      return reply.status(200).send({ message: "Projeto deletado com sucesso" });
-    } catch (error) {
+      return ResponseHandler.ok(reply, "Projeto deletado com sucesso");
+    } catch (error: any) {
       console.error(error);
-      return reply.status(500).send({ error: "Erro ao deletar projeto" });
+      
+      if (error.message === 'Projeto não encontrado') {
+        return ResponseHandler.notFound(reply, "Recurso não encontrado", error.message);
+      }
+      
+      if (error.message === 'Acesso negado') {
+        return ResponseHandler.forbidden(reply, "Acesso negado", error.message);
+      }
+      
+      return ResponseHandler.internalError(reply, "Erro ao deletar projeto", error.message);
     }
   },
 
   async updateProposal(request: FastifyRequest, reply: FastifyReply) {
     try {
       const { id } = request.params as { id: string };
-      const project = await prisma.project.findUnique({ where: { id } });
-      if (!project) return reply.status(404).send({ error: "Projeto não encontrado" });
+      const { id: userId } = request.user;
 
-      const { id: userId, role: userRole } = request.user;
-
-      const isCreator = project.creatorId === userId;
-
-      if (!isCreator) {
-        return reply.status(403).send({ error: "Acesso negado." });
-      }
-
-      if (project.status !== ProjectStatus.APPROVED && project.status !== ProjectStatus.ACTIVE) {
-        return reply.status(403).send({ error: "Projeto não pode ser editado" });
-      }
+      const project = await projectService.validateProposalUpdate(id, userId);
 
       for await (const part of request.parts()) {
         if (part.type === "file") {
-          // sempre PDF aqui
           if (part.filename.split(".").pop()?.toLowerCase() !== "pdf") {
-            return reply.status(400).send({ error: "Apenas arquivos PDF são aceitos" });
+            return ResponseHandler.badRequest(reply, "Tipo de arquivo inválido", "Apenas arquivos PDF são aceitos");
           }
-          if (project.proposal_document_url) await fileService.deleteFile(project.proposal_document_url);
+
+          if (project.proposal_document_url) {
+            await fileService.deleteFile(project.proposal_document_url);
+          }
+
           const proposal_document_url = await fileService.saveProposalFile(part);
 
-          const updatedProject = await prisma.project.update({
-            where: { id },
-            data: { proposal_document_url },
-          });
+          const updatedProject = await projectService.updateProposalUrl(id, proposal_document_url);
 
-          return reply.status(200).send({ message: "Proposta atualizada com sucesso", project: updatedProject });
+          return ResponseHandler.ok(reply, "Proposta atualizada com sucesso", { project: updatedProject });
         }
       }
 
-      return reply.status(400).send({ error: "Nenhum arquivo enviado" });
-    } catch (error) {
+      return ResponseHandler.badRequest(reply, "Requisição inválida", "Nenhum arquivo enviado");
+    } catch (error: any) {
       console.error(error);
-      return reply.status(500).send({ error: "Erro ao atualizar proposta" });
+      
+      if (error.message === 'Projeto não encontrado') {
+        return ResponseHandler.notFound(reply, "Recurso não encontrado", error.message);
+      }
+      
+      if (error.message === 'Acesso negado' || error.message?.includes('não pode ser editado')) {
+        return ResponseHandler.forbidden(reply, "Acesso negado", error.message);
+      }
+      
+      return ResponseHandler.internalError(reply, "Erro ao atualizar proposta", error.message);
     }
   },
 
   async updateImage(request: FastifyRequest, reply: FastifyReply) {
     try {
       const { id } = request.params as { id: string };
-      const project = await prisma.project.findUnique({ where: { id } });
-      if (!project) return reply.status(404).send({ error: "Projeto não encontrado" });
-
       const { id: userId, role: userRole } = request.user;
 
-      const isCreator = project.creatorId === userId;
-      const isAdmin = userRole === UserRole.ADMIN;
-
-      if (!isCreator && !isAdmin) {
-        return reply.status(403).send({ error: "Acesso negado. Ação permitida apenas ao criador ou administrador." });
-      }
-
-      if (project.status !== ProjectStatus.APPROVED && project.status !== ProjectStatus.ACTIVE) {
-        return reply.status(403).send({ error: "Projeto não pode ser editado" });
-      }
+      const project = await projectService.validateImageUpdate(id, userId, userRole);
 
       for await (const part of request.parts()) {
         if (part.type === "file") {
           const ext = part.filename.split(".").pop()?.toLowerCase();
           if (!["jpg", "jpeg", "png", "gif"].includes(ext || "")) {
-            return reply.status(400).send({ error: "Tipo de imagem não suportado" });
+            return ResponseHandler.badRequest(reply, "Tipo de arquivo inválido", "Tipo de imagem não suportado");
           }
-          if (project.img_url) await fileService.deleteFile(project.img_url);
+
+          if (project.img_url) {
+            await fileService.deleteFile(project.img_url);
+          }
+
           const img_url = await fileService.saveProjectPhoto(part);
 
-          const updatedProject = await prisma.project.update({
-            where: { id },
-            data: { img_url },
-          });
+          const updatedProject = await projectService.updateImageUrl(id, img_url);
 
-          return reply.status(200).send({ message: "Imagem atualizada com sucesso", project: updatedProject });
+          return ResponseHandler.ok(reply, "Imagem atualizada com sucesso", { project: updatedProject });
         }
       }
 
-      return reply.status(400).send({ error: "Nenhum arquivo enviado" });
-    } catch (error) {
+      return ResponseHandler.badRequest(reply, "Requisição inválida", "Nenhum arquivo enviado");
+    } catch (error: any) {
       console.error(error);
-      return reply.status(500).send({ error: "Erro ao atualizar imagem" });
+      
+      if (error.message === 'Projeto não encontrado') {
+        return ResponseHandler.notFound(reply, "Recurso não encontrado", error.message);
+      }
+      
+      if (error.message === 'Acesso negado' || error.message?.includes('não pode ser editado')) {
+        return ResponseHandler.forbidden(reply, "Acesso negado", error.message);
+      }
+      
+      return ResponseHandler.internalError(reply, "Erro ao atualizar imagem", error.message);
     }
   },
 
@@ -349,49 +252,31 @@ export const projectController = {
       const { id } = request.params as { id: string };
       const { status } = request.body as { status: ProjectStatus };
 
-      // Verifica se o status enviado é válido para aprovação/rejeição
-      if (status !== ProjectStatus.APPROVED && status !== ProjectStatus.REJECTED) {
-        return reply.status(400).send({ error: "Status inválido para esta ação" });
-      }
+      const updatedProject = await projectService.updateStatus(id, status);
 
-      const project = await prisma.project.findUnique({ where: { id } });
-      if (!project) return reply.status(404).send({ error: "Projeto não encontrado" });
-
-      // se o usuário é diretor (autorização)
-      // Ex: if (request.user.role !== "DIRECTOR") return reply.status(403).send({ error: "Não autorizado" });
-
-      const updatedProject = await prisma.project.update({
-        where: { id },
-        data: { status },
-      });
-
-      return reply.status(200).send({ message: `Projeto ${status.toLowerCase()}`, project: updatedProject });
-    } catch (error) {
+      return ResponseHandler.ok(reply, "Status do projeto atualizado com sucesso", { project: updatedProject });
+    } catch (error: any) {
       console.error(error);
-      return reply.status(500).send({ error: "Erro ao atualizar status do projeto" });
+      
+      if (error.message === 'Projeto não encontrado') {
+        return ResponseHandler.notFound(reply, "Recurso não encontrado", error.message);
+      }
+      
+      if (error.message === 'Status inválido para esta ação') {
+        return ResponseHandler.badRequest(reply, "Requisição inválida", error.message);
+      }
+      
+      return ResponseHandler.internalError(reply, "Erro ao atualizar status do projeto", error.message);
     }
   },
 
   async getMetrics(request: FastifyRequest, reply: FastifyReply) {
     try {
-      const total = await prisma.project.count();
-      const active = await prisma.project.count({
-        where: { status: ProjectStatus.ACTIVE }
-      });
-      const finished = await prisma.project.count({
-        where: { status: ProjectStatus.FINISHED }
-      });
-
-      return reply.status(200).send({
-        total,
-        active,
-        finished,
-        inactive: total - (active + finished) // opcional: se quiser ver quantos estão em outros status
-      });
-    } catch (error) {
+      const metrics = await projectService.getMetrics();
+      return ResponseHandler.ok(reply, "Métricas recuperadas com sucesso", metrics);
+    } catch (error: any) {
       console.error(error);
-      return reply.status(500).send({ error: "Erro ao buscar métricas de projetos" });
+      return ResponseHandler.internalError(reply, "Erro ao buscar métricas de projetos", error.message);
     }
   }
 };
-

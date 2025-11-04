@@ -1,69 +1,48 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
-import { prisma } from '../lib/prisma';
-import { UserRole } from '@prisma/client';
+import { keywordsService } from '../services/keywordsService';
+import { ResponseHandler } from '../utils/responseHandler';
 
 export const keywordsController = {
     async create(request: FastifyRequest, reply: FastifyReply) {
         try {
             const { projectId } = request.params as { projectId: string };
             const { keywords } = request.body as { keywords: string[] };
-
-            if (!keywords || !Array.isArray(keywords) || keywords.length === 0) {
-                return reply.status(400).send({ error: "Keywords são obrigatórias" });
-            }
-
-            const project = await prisma.project.findUnique({ 
-                where: { id: projectId }, 
-                select: { creatorId: true } 
-            });
-
-            if (!project) return reply.status(404).send({ error: "Projeto não encontrado" });
-
             const { id: userId, role: userRole } = (request as any).user;
-            const isCreator = project.creatorId === userId;
-            const isAdmin = userRole === UserRole.ADMIN;
 
-            if (!isCreator && !isAdmin) {
-                 return reply.status(403).send({ error: "Acesso negado. Apenas o criador ou administrador podem modificar as palavras-chave." });
-            }
-
-            const createdKeywords = [];
-
-            for (const keywordName of keywords) {
-                if (!keywordName || keywordName.trim() === "") continue;
-
-                const keyword = await prisma.keyword.upsert({
-                    where: { name: keywordName },
-                    update: {
-                        project: { connect: { id: projectId } },
-                    },
-                    create: {
-                        name: keywordName,
-                        project: { connect: { id: projectId } },
-                    },
-                });
-
-                createdKeywords.push(keyword);
-            }
-
-            return reply.status(201).send({
-                message: "Palavras-chave associadas ao projeto com sucesso",
-                keywords: createdKeywords,
+            const createdKeywords = await keywordsService.create({
+                projectId,
+                keywords,
+                userId,
+                userRole,
             });
 
-        } catch (error) {
+            return ResponseHandler.created(reply, 'Palavras-chave associadas ao projeto com sucesso', { keywords: createdKeywords });
+        } catch (error: any) {
             console.error(error);
-            return reply.status(500).send({ error: "Erro ao criar palavra-chave" });
+            
+            if (error.message === 'Palavras-chave são obrigatórias') {
+                return ResponseHandler.badRequest(reply, 'Requisição inválida', error.message);
+            }
+            
+            if (error.message === 'Projeto não encontrado') {
+                return ResponseHandler.notFound(reply, 'Recurso não encontrado', error.message);
+            }
+            
+            if (error.message === 'Acesso negado') {
+                return ResponseHandler.forbidden(reply, 'Acesso negado', error.message);
+            }
+            
+            return ResponseHandler.internalError(reply, 'Erro ao criar palavra-chave', error.message);
         }
     },
 
     async getAll(_: FastifyRequest, reply: FastifyReply) {
         try {
-            const keywords = await prisma.keyword.findMany();
-            return reply.status(200).send(keywords);
-        } catch (error) {
+            const keywords = await keywordsService.getAll();
+            return ResponseHandler.ok(reply, 'Palavras-chave recuperadas com sucesso', { keywords });
+        } catch (error: any) {
             console.error(error);
-            return reply.status(500).send({ error: "Erro ao buscar palavras-chave" });
+            return ResponseHandler.internalError(reply, 'Erro ao buscar palavras-chave', error.message);
         }
     },
 
@@ -71,20 +50,12 @@ export const keywordsController = {
         try {
             const { projectId, keywordId } = request.params as { projectId: string; keywordId: string };
 
-            // Remove a associação (não deleta a keyword global)
-            await prisma.project.update({
-                where: { id: projectId },
-                data: {
-                    keywords: {
-                        disconnect: { id: keywordId },
-                    },
-                },
-            });
+            await keywordsService.removeFromProject(projectId, keywordId);
 
-            return reply.status(200).send({ message: "Palavra-chave removida do projeto com sucesso" });
-        } catch (error) {
+            return ResponseHandler.ok(reply, 'Palavra-chave removida do projeto com sucesso');
+        } catch (error: any) {
             console.error(error);
-            return reply.status(500).send({ error: "Erro ao remover palavra-chave" });
+            return ResponseHandler.internalError(reply, 'Erro ao remover palavra-chave', error.message);
         }
     },
 
@@ -92,14 +63,12 @@ export const keywordsController = {
         try {
             const { projectId } = request.params as { projectId: string };
 
-            const keywords = await prisma.keyword.findMany({
-                where: { project: { some: { id: projectId } } },
-            });
+            const keywords = await keywordsService.getByProject(projectId);
 
-            return reply.status(200).send(keywords);
-        } catch (error) {
+            return ResponseHandler.ok(reply, 'Palavras-chave do projeto recuperadas com sucesso', { keywords });
+        } catch (error: any) {
             console.error(error);
-            return reply.status(500).send({ error: "Erro ao buscar palavras-chave do projeto" });
+            return ResponseHandler.internalError(reply, 'Erro ao buscar palavras-chave do projeto', error.message);
         }
     },
 
@@ -107,19 +76,17 @@ export const keywordsController = {
         try {
             const { keywordId } = request.params as { keywordId: string };
 
-            const keyword = await prisma.keyword.findUnique({
-                where: { id: keywordId },
-                include: {
-                    project: true, // pega todos os projetos associados
-                },
-            });
+            const projects = await keywordsService.getProjects(keywordId);
 
-            if (!keyword) return reply.status(404).send({ error: "Keyword não encontrada" });
-
-            return reply.status(200).send(keyword.project);
-        } catch (error) {
+            return ResponseHandler.ok(reply, 'Projetos recuperados com sucesso', { projects });
+        } catch (error: any) {
             console.error(error);
-            return reply.status(500).send({ error: "Erro ao buscar projetos da keyword" });
+            
+            if (error.message === 'Palavra-chave não encontrada') {
+                return ResponseHandler.notFound(reply, 'Recurso não encontrado', error.message);
+            }
+            
+            return ResponseHandler.internalError(reply, 'Erro ao buscar projetos da palavra-chave', error.message);
         }
     }
 };

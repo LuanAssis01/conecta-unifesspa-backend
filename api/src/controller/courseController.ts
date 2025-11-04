@@ -1,36 +1,35 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
-import { prisma } from '../lib/prisma';
+import { courseService } from '../services/courseService';
+import { ResponseHandler } from '../utils/responseHandler';
 
 export const courseController = {
     async create(request: FastifyRequest, reply: FastifyReply) {
         try {
             const { name } = request.body as { name: string };
 
-            if (!name) {
-                return reply.status(400).send({ error: 'Nome do curso é obrigatório' });
+            const course = await courseService.create({ name });
+            
+            return ResponseHandler.created(reply, 'Curso criado com sucesso', { course });
+        } catch (error: any) {
+            
+            if (error.message === 'Nome é obrigatório') {
+                return ResponseHandler.badRequest(reply, 'Requisição inválida', error.message);
             }
-
-            const existingCourse = await prisma.course.findFirst({ where: { name } });
-
-            if (existingCourse) {
-                return reply.status(409).send({ error: 'Já existe um curso com esse nome' });
+            
+            if (error.message === 'Curso já cadastrado') {
+                return ResponseHandler.conflict(reply, 'Recurso já existe', error.message);
             }
-
-            const course = await prisma.course.create({ data: { name } });
-            return reply.status(201).send({ message: 'Curso criado com sucesso', course });
-        } catch (error) {
-            console.error(error);
-            return reply.status(500).send({ error: 'Erro ao criar curso' });
+            
+            return ResponseHandler.internalError(reply, 'Erro ao criar curso', error.message);
         }
     },
 
     async getAll(_: FastifyRequest, reply: FastifyReply) {
         try {
-            const courses = await prisma.course.findMany();
-            return reply.status(200).send(courses);
-        } catch (error) {
-            console.error(error);
-            return reply.status(500).send({ error: 'Erro ao buscar cursos' });
+            const courses = await courseService.getAll();
+            return ResponseHandler.ok(reply, 'Cursos recuperados com sucesso', { courses });
+        } catch (error: any) {
+            return ResponseHandler.internalError(reply, 'Erro ao buscar cursos', error.message);
         }
     },
 
@@ -38,13 +37,15 @@ export const courseController = {
         try {
             const { id } = request.params as { id: string };
 
-            const course = await prisma.course.findUnique({ where: { id } });
-            if (!course) return reply.status(404).send({ error: 'Curso não encontrado' });
-
-            return reply.status(200).send(course);
-        } catch (error) {
-            console.error(error);
-            return reply.status(500).send({ error: 'Erro ao buscar curso' });
+            const course = await courseService.getById(id);
+            
+            return ResponseHandler.ok(reply, 'Curso recuperado com sucesso', { course });
+        } catch (error: any) {            
+            if (error.message === 'Curso não encontrado') {
+                return ResponseHandler.notFound(reply, 'Recurso não encontrado', error.message);
+            }
+            
+            return ResponseHandler.internalError(reply, 'Erro ao buscar curso', error.message);
         }
     },
 
@@ -52,14 +53,16 @@ export const courseController = {
         try {
             const { id } = request.params as { id: string };
 
-            const course = await prisma.course.findUnique({ where: { id } });
-            if (!course) return reply.status(404).send({ error: 'Curso não encontrado' });
-
-            await prisma.course.delete({ where: { id } });
-            return reply.status(200).send({ message: 'Curso deletado com sucesso' });
-        } catch (error) {
-            console.error(error);
-            return reply.status(500).send({ error: 'Erro ao deletar curso' });
+            await courseService.delete(id);
+            
+            return ResponseHandler.ok(reply, 'Curso deletado com sucesso');
+        } catch (error: any) {
+            
+            if (error.message === 'Curso não encontrado') {
+                return ResponseHandler.notFound(reply, 'Recurso não encontrado', error.message);
+            }
+            
+            return ResponseHandler.internalError(reply, 'Erro ao deletar curso', error.message);
         }
     },
 };

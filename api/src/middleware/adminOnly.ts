@@ -1,6 +1,10 @@
-import { FastifyRequest, FastifyInstance } from 'fastify';
+import { FastifyRequest, FastifyReply } from 'fastify';
 import jwt from 'jsonwebtoken';
 import { UserRole } from '@prisma/client';
+
+if (!process.env.JWT_SECRET) {
+  throw new Error('JWT_SECRET não está definido nas variáveis de ambiente');
+}
 
 const JWT_SECRET = process.env.JWT_SECRET;
 

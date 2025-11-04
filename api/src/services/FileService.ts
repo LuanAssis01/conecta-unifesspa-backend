@@ -1,73 +1,83 @@
-import fs from "fs";
-import path from "path";
 import crypto from "crypto";
-import { MultipartFile } from "fastify-multipart";
-
+import { MultipartFile } from "@fastify/multipart";
+import { minioClient, BUCKETS } from "../lib/minio";
+import { Readable } from "stream";
 
 export interface IFileService {
   saveProposalFile(file: MultipartFile): Promise<string>;
+  saveProjectPhoto(file: MultipartFile): Promise<string>;
+  deleteFile(fileUrl: string): Promise<void>;
 }
 
 export class FileService implements IFileService {
-  private uploadFolder = path.resolve(__dirname, "../../uploads/proposals");
-  private photoUploadFolder = path.resolve(__dirname, "../../uploads/project-photos");
-
-  constructor() {
-    if (!fs.existsSync(this.uploadFolder)) {
-      fs.mkdirSync(this.uploadFolder, { recursive: true });
-    }
-    if (!fs.existsSync(this.photoUploadFolder)) {
-      fs.mkdirSync(this.photoUploadFolder, { recursive: true });
-    }
+  private getMinioUrl(bucketName: string, fileName: string): string {
+    const endpoint = process.env.MINIO_ENDPOINT || 'localhost';
+    const port = process.env.MINIO_PORT || '9000';
+    const protocol = process.env.MINIO_USE_SSL === 'true' ? 'https' : 'http';
+    
+    return `${protocol}://${endpoint}:${port}/${bucketName}/${fileName}`;
   }
 
   async saveProposalFile(file: MultipartFile): Promise<string> {
-    console.log("Iniciando upload:", file.filename);
-    const ext = path.extname(file.filename);
-    const uniqueName = crypto.randomUUID() + ext;
-    const filePath = path.join(this.uploadFolder, uniqueName);
+    const ext = file.filename.split('.').pop()?.toLowerCase() || 'pdf';
+    const uniqueName = `${crypto.randomUUID()}.${ext}`;
     
-    await new Promise((resolve, reject) => {
-      const writeStream = fs.createWriteStream(filePath);
-      file.file
-        .pipe(writeStream)
-        .on("finish", resolve)
-        .on("error", reject);
-    });
+    // Converte o stream do arquivo para buffer
+    const buffer = await file.toBuffer();
+    
+    // Faz upload para o MinIO
+    await minioClient.putObject(
+      BUCKETS.PROPOSALS,
+      uniqueName,
+      buffer,
+      buffer.length,
+      {
+        'Content-Type': file.mimetype || 'application/pdf',
+      }
+    );
 
-    console.log("Upload finalizado:", filePath);
-    return `/uploads/proposals/${uniqueName}`;
+    return this.getMinioUrl(BUCKETS.PROPOSALS, uniqueName);
   }
 
   async saveProjectPhoto(file: MultipartFile): Promise<string> {
-    console.log("Iniciando upload da foto:", file.filename);
-    const ext = path.extname(file.filename);
-    const uniqueName = crypto.randomUUID() + ext;
-    const filePath = path.join(this.photoUploadFolder, uniqueName);
+    const ext = file.filename.split('.').pop()?.toLowerCase() || 'jpg';
+    const uniqueName = `${crypto.randomUUID()}.${ext}`;
     
-    await new Promise((resolve, reject) => {
-      const writeStream = fs.createWriteStream(filePath);
-      file.file
-        .pipe(writeStream)
-        .on("finish", resolve)
-        .on("error", reject);
-    });
-
-    return `/uploads/project-photos/${uniqueName}`;
-  }
-  
-  async deleteFile(fileUrl: string) {
-    if (!fileUrl) return;
-    const relativePath = fileUrl.startsWith("/uploads/") ? fileUrl.replace("/uploads/", "") : fileUrl;
-
-    const filePath = path.join(
-      relativePath.includes("proposals") ? this.uploadFolder : this.photoUploadFolder,
-      path.basename(relativePath)
+    // Converte o stream do arquivo para buffer
+    const buffer = await file.toBuffer();
+    
+    // Faz upload para o MinIO
+    await minioClient.putObject(
+      BUCKETS.PROJECTS,
+      uniqueName,
+      buffer,
+      buffer.length,
+      {
+        'Content-Type': file.mimetype || 'image/jpeg',
+      }
     );
 
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-      console.log(`Arquivo deletado: ${filePath}`);
+    return this.getMinioUrl(BUCKETS.PROJECTS, uniqueName);
+  }
+  
+  async deleteFile(fileUrl: string): Promise<void> {
+    if (!fileUrl) return;
+
+    try {
+      // Extrai o bucket e o nome do arquivo da URL
+      // Ex: http://localhost:9000/conecta-projects/abc-123.jpg
+      const url = new URL(fileUrl);
+      const pathParts = url.pathname.split('/').filter(p => p);
+      
+      if (pathParts.length < 2) return;
+      
+      const bucketName = pathParts[0];
+      const fileName = pathParts.slice(1).join('/');
+
+      await minioClient.removeObject(bucketName, fileName);
+      console.log(`✓ Arquivo deletado: ${bucketName}/${fileName}`);
+    } catch (error) {
+      console.error('Erro ao deletar arquivo do MinIO:', error);
     }
   }
 }

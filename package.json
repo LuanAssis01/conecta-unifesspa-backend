@@ -5,6 +5,8 @@
   "main": "index.js",
   "scripts": {
     "dev": "tsx watch --env-file .env api/server.ts",
+    "build": "tsc",
+    "start": "node dist/api/server.js",
     "prisma": "prisma",
     "seed": "tsx prisma/seed.ts"
   },
@@ -14,6 +16,8 @@
   "author": "Ketly, Luan, Marília e Paulo",
   "license": "ISC",
   "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
+    "@types/minio": "^7.1.0",
     "@types/node": "^22.2.0",
     "typescript": "^5.5.4"
   },
@@ -26,6 +30,7 @@
     "fastify": "^5.6.0",
     "fastify-multer": "^2.0.3",
     "jsonwebtoken": "^9.0.2",
+    "minio": "^8.0.6",
     "multer-storage-cloudinary": "^4.0.0",
     "postgres": "^3.4.7",
     "prisma": "^6.16.2",

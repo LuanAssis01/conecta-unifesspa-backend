@@ -1,27 +1,27 @@
 import { FastifyInstance } from "fastify";
-import { impactIndicatorsController } from "../controller/impactIndicatorsController";
+import { indicatorsController } from "../controller/indicatorsController";
 import { isAuthenticated } from "../middleware/isAuthenticated";
 
-export async function impactIndicatorsRoutes(app: FastifyInstance) {
+export async function indicatorsRoutes(app: FastifyInstance) {
   const authenticatedHook = { preHandler: [isAuthenticated] };
 
   app.post(
     "/projects/:projectId/impact-indicators",
     authenticatedHook,
-    impactIndicatorsController.create
+    indicatorsController.create
   );
   app.put(
     "/projects/:projectId/impact-indicators/:indicatorId",
     authenticatedHook,
-    impactIndicatorsController.update
+    indicatorsController.update
   );
   app.delete(
     "/projects/:projectId/impact-indicators/:indicatorId",
     authenticatedHook,
-    impactIndicatorsController.delete
+    indicatorsController.delete
   );
   app.get(
     "/projects/:projectId/impact-indicators",
-    impactIndicatorsController.getByProject
+    indicatorsController.getByProject
   );
 }

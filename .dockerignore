@@ -1,0 +1,59 @@
+# Dependencies
+node_modules
+npm-debug.log
+yarn-error.log
+
+# Build output
+dist
+build
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+Dockerfile
+docker-compose.yml
+compose.yaml
+.dockerignore
+
+# Documentation
+README.md
+docs
+
+# Uploads (usando MinIO agora)
+uploads
+
+# Database
+data
+volumes
+*.db
+*.sqlite
+
+# Logs
+logs
+*.log
+
+# Testing
+coverage
+.nyc_output
+
+# Misc
+.editorconfig
+.prettierrc
+.eslintrc

@@ -1,12 +1,35 @@
 # 🧩 Conecta UNIFESSPA - Backend
 
-[![](https://img.shields.io/badge/Node.js-18%2B-blue?logo=node.js&style=for-the-badge)](https://nodejs.org/en/)
-[![](https://img.shields.io/badge/Fastify-4.x-black?logo=fastify&style=for-the-badge)](https://fastify.io/)
-[![](https://img.shields.io/badge/Prisma-5.x-blueviolet?logo=prisma&style=for-the-badge)](https://www.prisma.io/)
+[![](https://img.shields.io/badge/Node.js-20%2B-blue?logo=node.js&style=for-the-badge)](https://nodejs.org/en/)
+[![](https://img.shields.io/badge/Fastify-5.x-black?logo=fastify&style=for-the-badge)](https://fastify.io/)
+[![](https://img.shields.io/badge/Prisma-6.x-blueviolet?logo=prisma&style=for-the-badge)](https://www.prisma.io/)
 [![](https://img.shields.io/badge/TypeScript-5.x-blue?logo=typescript&style=for-the-badge)](https://www.typescriptlang.org/)
-[![](https://img.shields.io/badge/PostgreSQL-15-darkblue?logo=postgresql&style=for-the-badge)](https://www.postgresql.org/)
+[![](https://img.shields.io/badge/PostgreSQL-16-darkblue?logo=postgresql&style=for-the-badge)](https://www.postgresql.org/)
+[![](https://img.shields.io/badge/MinIO-latest-red?logo=minio&style=for-the-badge)](https://min.io/)
 
-API desenvolvida em **Node.js + TypeScript + Fastify + Prisma** para o projeto **Conecta UNIFESSPA**, uma plataforma que gerencia **projetos acadêmicos e de extensão** com controle de usuários, cursos, indicadores de impacto e integração com **Cloudinary** para upload de imagens.
+API desenvolvida em **Node.js + TypeScript + Fastify + Prisma** para o projeto **Conecta UNIFESSPA**, uma plataforma que gerencia **projetos acadêmicos e de extensão** com controle de usuários, cursos, indicadores de impacto e integração com **MinIO** para armazenamento de arquivos.
+
+---
+
+## 🚀 Quick Start com Docker
+
+A forma mais rápida de rodar o projeto completo:
+
+```bash
+# Inicia todos os serviços (PostgreSQL + MinIO + API)
+./docker.sh start
+
+# OU para desenvolvimento local (apenas infraestrutura)
+./docker.sh dev
+npm run dev
+```
+
+**URLs de acesso:**
+- 🌐 API: http://localhost:3333
+- 📦 MinIO Console: http://localhost:9001 (minioadmin/minioadmin123)
+- 🐘 PostgreSQL: localhost:5432
+
+📖 [Ver documentação completa do Docker](docs/DOCKER.md)
 
 ---
 
@@ -16,16 +39,17 @@ API desenvolvida em **Node.js + TypeScript + Fastify + Prisma** para o projeto *
 * **Gerenciamento de Usuários:** Criação de usuários com senhas criptografadas (Bcrypt).
 * **CRUD de Projetos:** Gerenciamento completo de projetos acadêmicos e de extensão.
 * **Gestão Acadêmica:** CRUDs para Cursos, Palavras-chave e Indicadores de Impacto.
-* **Upload de Imagens:** Integração com Cloudinary para upload de imagens dos projetos.
+* **Upload de Arquivos:** Integração com MinIO para armazenamento de imagens e PDFs.
 * **Controle de Acesso:** Middleware para restringir rotas apenas para administradores.
 
 ## 📚 Tecnologias Utilizadas
 
-* **Node.js** (v18+)
+* **Node.js** (v20+)
 * **Fastify** – framework HTTP rápido e leve
 * **TypeScript** – tipagem estática
 * **Prisma ORM** – acesso ao banco de dados PostgreSQL
 * **PostgreSQL** – banco de dados relacional
+* **MinIO** – object storage para arquivos
 * **JWT (jsonwebtoken)** – autenticação segura
 * **Bcrypt** – hash de senhas
 * **Fastify Multer** – upload de arquivos

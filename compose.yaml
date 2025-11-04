@@ -1,34 +1,93 @@
 services:
-  postgres-db:
-    image: postgres:16
-    container_name: bd_unifesspa
-    restart: always
+  # ===========================================
+  # PostgreSQL Database
+  # ===========================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: conecta-postgres
+    restart: unless-stopped
     ports:
-      - "${DB_PORT:-5432}:5432"
+      - "5434:5432"
     environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 1234
+      POSTGRES_DB: unifesspa
     volumes:
-      - ./data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
     networks:
-      - internal
+      - conecta-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  pgadmin:
-    image: dpage/pgadmin4
-    container_name: pgadmin
-    user: root
-    environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
-      PGADMIN_CONFIG_SERVER_MODE: 'False'
-    volumes:
-       - ./volumes/pgadmin-data:/var/lib/pgadmin
+  # ===========================================
+  # MinIO Object Storage
+  # ===========================================
+  minio:
+    image: minio/minio:latest
+    container_name: conecta-minio
+    restart: unless-stopped
     ports:
-      - "${PGADMIN_PORT:-5050}:80"
+      - "9000:9000"      # API
+      - "9001:9001"      # Console
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
     networks:
-      - internal
+      - conecta-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
+  # ===========================================
+  # Backend Application
+  # ===========================================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: conecta-backend
+    restart: unless-stopped
+    ports:
+      - "3333:3333"
+    environment:
+      NODE_ENV: production
+      PORT: 3333
+      DATABASE_URL: postgresql://postgres:1234@postgres:5432/unifesspa?schema=public
+      JWT_SECRET: supersegredo123
+      JWT_EXPIRES_IN: 1d
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_USE_SSL: false
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - conecta-network
+
+# ===========================================
+# Volumes
+# ===========================================
+volumes:
+  postgres_data:
+    driver: local
+  minio_data:
+    driver: local
+
+# ===========================================
+# Networks
+# ===========================================
 networks:
-  internal:
+  conecta-network:
     driver: bridge
