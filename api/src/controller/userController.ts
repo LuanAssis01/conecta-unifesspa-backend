@@ -7,22 +7,16 @@ import { generateToken } from '../auth/jwt'
 export const userController = {
   async create(request: FastifyRequest, reply: FastifyReply) {
     try {
-      const { name, email, password, role } = request.body as {
+      const { name, email, password } = request.body as {
         name: string;
         email: string;
         password: string;
-        role: UserRole;
       };
 
       const existingUser = await prisma.user.findUnique({ where: { email } });
 
       if (existingUser) {
         return reply.status(400).send({ error: 'Email já está em uso' });
-      }
-
-
-      if (!Object.values(UserRole).includes(role)) {
-        return reply.status(400).send({ error: 'Invalid role' });
       }
 
       const hashedPassword = await bcrypt.hash(password, 10);
@@ -32,7 +26,7 @@ export const userController = {
           name,
           email,
           password: hashedPassword,
-          role,
+          role: UserRole.TEACHER
         },
       });
 
@@ -75,9 +69,9 @@ export const userController = {
     }
 
     const token = generateToken({
-    sub: user.id,
-    email: user.email,
-    role: user.role,
+      id: user.id,
+      email: user.email,
+      role: user.role,
     });
 
     const { password: _, ...userWithoutPassword } = user;
@@ -91,6 +85,89 @@ export const userController = {
       },
     });
   },
+
+  async update(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      const { name, email, password } = request.body as {
+        name?: string;
+        email?: string;
+        password?: string;
+      };
+
+      const { id: userIdFromToken } = request.user;
+
+      const existingUser = await prisma.user.findUnique({ where: { id: userIdFromToken } });
+      if (!existingUser) {
+        return reply.status(404).send({ error: 'Usuário não encontrado' });
+      }
+
+      let hashedPassword = existingUser.password;
+      if (password) {
+        hashedPassword = await bcrypt.hash(password, 10);
+      }
+
+      // Evita duplicidade de e-mail
+      if (email && email !== existingUser.email) {
+        const emailInUse = await prisma.user.findUnique({ where: { email } });
+        if (emailInUse) {
+          return reply.status(400).send({ error: 'Email já está em uso' });
+        }
+      }
+
+      const updatedUser = await prisma.user.update({
+        where: { id: userIdFromToken },
+        data: {
+          name: name ?? existingUser.name,
+          email: email ?? existingUser.email,
+          password: hashedPassword,
+        },
+      });
+
+      const { password: _, ...userWithoutPassword } = updatedUser;
+
+      return reply.status(200).send({
+        message: 'Perfil atualizado com sucesso',
+        user: userWithoutPassword,
+      });
+    } catch (error) {
+      console.error(error);
+      return reply.status(500).send({ error: 'Erro ao atualizar perfil' });
+    }
+  },
+
+  async getAll(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      const users = await prisma.user.findMany({
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true
+        },
+      });
+
+      return reply.status(200).send(users);
+    } catch (error) {
+      console.error(error);
+      return reply.status(500).send({ error: 'Erro ao buscar usuários' });
+    }
+  },
+
+  async delete(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      const { id } = request.params as { id: string };
+
+      const user = await prisma.user.findUnique({ where: { id } });
+      if (!user) {
+        return reply.status(404).send({ error: 'Usuário não encontrado' });
+      }
+
+      await prisma.user.delete({ where: { id } });
+
+      return reply.status(200).send({ message: 'Usuário deletado com sucesso' });
+    } catch (error) {
+      console.error(error);
+      return reply.status(500).send({ error: 'Erro ao deletar usuário' });
+    }
+  },
 };
-
-

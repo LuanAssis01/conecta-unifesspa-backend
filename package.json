@@ -5,7 +5,11 @@
   "main": "index.js",
   "scripts": {
     "dev": "tsx watch --env-file .env api/server.ts",
-    "prisma": "prisma"
+    "prisma": "prisma",
+    "seed": "tsx prisma/seed.ts"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   },
   "author": "Ketly, Luan, Marília e Paulo",
   "license": "ISC",
@@ -14,7 +18,9 @@
     "typescript": "^5.5.4"
   },
   "dependencies": {
+    "@fastify/multipart": "^9.2.1",
     "@prisma/client": "^6.16.2",
+    "axios": "^1.13.1",
     "bcrypt": "^6.0.0",
     "cloudinary": "^1.37.2",
     "fastify": "^5.6.0",

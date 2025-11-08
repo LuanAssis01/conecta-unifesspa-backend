@@ -1,14 +1,28 @@
 import { FastifyInstance } from "fastify";
 import { projectController } from "../controller/projectController";
-import multer from "fastify-multer";
-
-const upload = multer({ dest: "uploads/" });
+import { isAuthenticated } from "../middleware/isAuthenticated";
+import { isAdmin } from "../middleware/adminOnly";
 
 export async function projectRoutes(app: FastifyInstance) {
-  app.post("/projects", { preHandler: upload.single("image") }, projectController.create);
-  app.get("/projects", projectController.getAll);
-  app.get("/projects/:id", projectController.getById);
-  app.put("/projects/:id", { preHandler: upload.single("image") }, projectController.update);
-  app.delete("/projects/:id", projectController.delete);
-}
+  const authenticatedHook = { preHandler: [isAuthenticated] };
+  const adminHook = { preHandler: [isAdmin] };
 
+  app.post("/projects", authenticatedHook, projectController.create);
+  app.get("/projects-admin", adminHook, projectController.getAll);
+  app.get("/projects", projectController.getAllFiltered);
+  app.get("/projects/:id", projectController.getById);
+  app.put("/projects/:id", authenticatedHook, projectController.update);
+  app.delete("/projects/:id", authenticatedHook, projectController.delete);
+  app.post(
+    "/projects/:id/proposal",
+    authenticatedHook,
+    projectController.updateProposal
+  );
+  app.post(
+    "/projects/:id/image",
+    authenticatedHook,
+    projectController.updateImage
+  );
+  app.patch("/projects/:id/status", adminHook, projectController.updateStatus);
+  app.get("/projects/metrics", adminHook, projectController.getMetrics);
+}
