@@ -20,10 +20,57 @@ jobs:
           echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
           echo "DB_NAME=${{ secrets.DB_NAME }}" >> .env
           echo "DB_PORT=${{ secrets.DB_PORT }}" >> .env
+          echo "DB_HOST=postgres-db" >> .env
           echo "PORT=${{ secrets.PORT }}" >> .env
+          echo "NODE_ENV=production" >> .env
           echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
+          echo "PGADMIN_DEFAULT_EMAIL=${{ secrets.PGADMIN_DEFAULT_EMAIL }}" >> .env
+          echo "PGADMIN_DEFAULT_PASSWORD=${{ secrets.PGADMIN_DEFAULT_PASSWORD }}" >> .env
+          echo "PGADMIN_PORT=${{ secrets.PGADMIN_PORT }}" >> .env
 
-      - name: Deploy to Hostinger via SFTP
+      - name: Create deployment script
+        run: |
+          cat > deploy-docker.sh << 'EOFSCRIPT'
+          #!/bin/bash
+          set -e
+          
+          echo "🚀 Iniciando deploy do Conecta Unifesspa..."
+          
+          # Navegar para o diretório do projeto
+          cd "$(dirname "$0")"
+          
+          # Verificar se Docker está instalado
+          if ! command -v docker &> /dev/null; then
+              echo "❌ Docker não está instalado!"
+              exit 1
+          fi
+          
+          # Parar containers antigos
+          echo "🛑 Parando containers antigos..."
+          docker compose down || true
+          
+          # Build e start dos containers
+          echo "🔨 Construindo e iniciando containers..."
+          docker compose up -d --build
+          
+          # Aguardar containers iniciarem
+          echo "⏳ Aguardando containers iniciarem..."
+          sleep 10
+          
+          # Verificar status
+          echo "📊 Status dos containers:"
+          docker compose ps
+          
+          # Verificar logs
+          echo "📋 Últimos logs:"
+          docker compose logs --tail=20 app
+          
+          echo "✅ Deploy concluído!"
+          EOFSCRIPT
+          
+          chmod +x deploy-docker.sh
+
+      - name: Deploy files to Hostinger via SFTP
         uses: wlixcc/SFTP-Deploy-Action@v1.2.4
         with:
           username: ${{ secrets.SFTP_USER }}
@@ -34,29 +81,15 @@ jobs:
           remote_path: ${{ secrets.SFTP_TARGET }}
           sftp_only: true
           delete_remote_files: false
-
-      - name: Execute Docker commands on server
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SFTP_HOST }}
-          username: ${{ secrets.SFTP_USER }}
-          password: ${{ secrets.SFTP_PASSWORD }}
-          port: ${{ secrets.SFTP_PORT }}
-          script: |
-            cd ${{ secrets.SFTP_TARGET }}
-            
-            # Parar containers antigos
-            docker compose down
-            
-            # Remover imagens antigas (opcional, para economizar espaço)
-            docker system prune -af --volumes || true
-            
-            # Build e start dos containers
-            docker compose up -d --build
-            
-            # Verificar status dos containers
-            docker compose ps
-            
-            # Exibir logs
-            docker compose logs --tail=50
+      
+      - name: Deployment Instructions
+        run: |
+          echo "📦 Arquivos enviados com sucesso!"
+          echo ""
+          echo "⚠️  ATENÇÃO: Execute manualmente no servidor:"
+          echo "1. Conecte-se ao servidor via SSH/Terminal da Hostinger"
+          echo "2. Execute: cd ${{ secrets.SFTP_TARGET }}"
+          echo "3. Execute: ./deploy-docker.sh"
+          echo ""
+          echo "Ou configure um webhook/cron job para executar automaticamente."
   
