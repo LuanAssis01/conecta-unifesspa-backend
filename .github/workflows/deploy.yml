@@ -1,4 +1,4 @@
-name: Deploy Docker to Hostinger
+name: Deploy to Hostinger via SFTP
 
 on:
   push:
@@ -8,7 +8,6 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: production
 
     steps:
       - name: Checkout repository
@@ -29,61 +28,30 @@ jobs:
           echo "PGADMIN_DEFAULT_PASSWORD=${{ secrets.PGADMIN_DEFAULT_PASSWORD }}" >> .env
           echo "PGADMIN_PORT=${{ secrets.PGADMIN_PORT }}" >> .env
 
-      - name: Deploy via SSH and Docker
-        uses: appleboy/ssh-action@v1.0.3
+      - name: Deploy files to Hostinger via SFTP
+        uses: wlixcc/SFTP-Deploy-Action@v1.2.4
         with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          password: ${{ secrets.SSH_PASSWORD }}
-          port: ${{ secrets.SSH_PORT }}
-          script_stop: true
-          script: |
-            set -e
-            
-            echo "📂 Navegando para o diretório do projeto..."
-            cd ${{ secrets.DEPLOY_PATH }}
-            
-            echo "🔄 Atualizando código do repositório..."
-            git fetch origin
-            git reset --hard origin/main
-            git pull origin main
-            
-            echo "📝 Atualizando arquivo .env..."
-            cat > .env << EOF
-            DATABASE_URL=${{ secrets.DATABASE_URL }}
-            DB_USER=${{ secrets.DB_USER }}
-            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-            DB_NAME=${{ secrets.DB_NAME }}
-            DB_PORT=${{ secrets.DB_PORT }}
-            DB_HOST=postgres-db
-            PORT=${{ secrets.PORT }}
-            NODE_ENV=production
-            JWT_SECRET=${{ secrets.JWT_SECRET }}
-            PGADMIN_DEFAULT_EMAIL=${{ secrets.PGADMIN_DEFAULT_EMAIL }}
-            PGADMIN_DEFAULT_PASSWORD=${{ secrets.PGADMIN_DEFAULT_PASSWORD }}
-            PGADMIN_PORT=${{ secrets.PGADMIN_PORT }}
-            EOF
-            
-            echo "🛑 Parando containers antigos..."
-            docker compose down || true
-            
-            echo "🔨 Construindo e iniciando containers..."
-            docker compose up -d --build
-            
-            echo "⏳ Aguardando containers iniciarem..."
-            sleep 15
-            
-            echo "📊 Status dos containers:"
-            docker compose ps
-            
-            echo "📋 Logs da aplicação:"
-            docker compose logs --tail=30 app
-            
-            echo "✅ Deploy concluído com sucesso!"
+          username: ${{ secrets.SFTP_USER }}
+          server: ${{ secrets.SFTP_HOST }}
+          port: ${{ secrets.SFTP_PORT }}
+          password: ${{ secrets.SFTP_PASSWORD }}
+          local_path: "./"
+          remote_path: ${{ secrets.SFTP_TARGET }}
+          sftp_only: true
+          delete_remote_files: false
       
-      - name: Deployment Success
+      - name: Deployment Instructions
         run: |
-          echo "🎉 Deploy realizado com sucesso!"
-          echo "🌐 Aplicação rodando na porta ${{ secrets.PORT }}"
-          echo "📊 Verifique os logs acima para confirmar o status"
+          echo "📦 Arquivos enviados com sucesso via SFTP!"
+          echo ""
+          echo "⚠️  PRÓXIMOS PASSOS NO SERVIDOR:"
+          echo ""
+          echo "1. Acesse o Terminal SSH no hPanel da Hostinger"
+          echo "2. Execute os comandos:"
+          echo "   cd ${{ secrets.SFTP_TARGET }}"
+          echo "   chmod +x deploy-docker.sh"
+          echo "   ./deploy-docker.sh"
+          echo ""
+          echo "💡 Ou configure um cron job para executar automaticamente"
+          echo "   */5 * * * * cd ${{ secrets.SFTP_TARGET }} && ./deploy-docker.sh >> /tmp/deploy.log 2>&1"
   
