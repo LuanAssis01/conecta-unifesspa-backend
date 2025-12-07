@@ -1,6 +1,33 @@
 services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: conecta_unifesspa_api
+    restart: always
+    ports:
+      - "${PORT:-3333}:3333"
+    environment:
+      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@postgres-db:5432/${DB_NAME}
+      NODE_ENV: production
+    env_file:
+      - .env
+    volumes:
+      - ./api/uploads:/app/api/uploads
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3333/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    networks:
+      - internal
+
   postgres-db:
-    image: postgres:16
+    image: postgres:16-alpine
     container_name: bd_unifesspa
     restart: always
     ports:
@@ -10,7 +37,12 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME}
     volumes:
-      - ./data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - internal
 
@@ -18,16 +50,23 @@ services:
     image: dpage/pgadmin4
     container_name: pgadmin
     user: root
+    restart: always
     environment:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
       PGADMIN_CONFIG_SERVER_MODE: 'False'
     volumes:
-       - ./volumes/pgadmin-data:/var/lib/pgadmin
+       - pgadmin_data:/var/lib/pgadmin
     ports:
       - "${PGADMIN_PORT:-5050}:80"
+    depends_on:
+      - postgres-db
     networks:
       - internal
+
+volumes:
+  postgres_data:
+  pgadmin_data:
 
 networks:
   internal:

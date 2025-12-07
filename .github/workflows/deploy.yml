@@ -1,0 +1,62 @@
+name: Deploy Docker to Hostinger
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create .env file
+        run: |
+          echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
+          echo "DB_USER=${{ secrets.DB_USER }}" >> .env
+          echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
+          echo "DB_NAME=${{ secrets.DB_NAME }}" >> .env
+          echo "DB_PORT=${{ secrets.DB_PORT }}" >> .env
+          echo "PORT=${{ secrets.PORT }}" >> .env
+          echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
+
+      - name: Deploy to Hostinger via SFTP
+        uses: wlixcc/SFTP-Deploy-Action@v1.2.4
+        with:
+          username: ${{ secrets.SFTP_USER }}
+          server: ${{ secrets.SFTP_HOST }}
+          port: ${{ secrets.SFTP_PORT }}
+          password: ${{ secrets.SFTP_PASSWORD }}
+          local_path: "./"        
+          remote_path: ${{ secrets.SFTP_TARGET }}
+          sftp_only: true
+          delete_remote_files: false
+
+      - name: Execute Docker commands on server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SFTP_HOST }}
+          username: ${{ secrets.SFTP_USER }}
+          password: ${{ secrets.SFTP_PASSWORD }}
+          port: ${{ secrets.SFTP_PORT }}
+          script: |
+            cd ${{ secrets.SFTP_TARGET }}
+            
+            # Parar containers antigos
+            docker compose down
+            
+            # Remover imagens antigas (opcional, para economizar espaço)
+            docker system prune -af --volumes || true
+            
+            # Build e start dos containers
+            docker compose up -d --build
+            
+            # Verificar status dos containers
+            docker compose ps
+            
+            # Exibir logs
+            docker compose logs --tail=50
+  

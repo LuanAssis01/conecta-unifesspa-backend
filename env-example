@@ -1,0 +1,25 @@
+# Postgres
+DB_USER=postgres
+DB_PASSWORD=postgres
+DB_NAME=conecta_unifesspa
+DB_PORT=5432
+DB_HOST=localhost
+
+# Prisma connection
+DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?schema=public"
+
+NODE_ENV=development
+PORT=3333
+
+JWT_SECRET=supersegredo123
+JWT_EXPIRES_IN=1d
+
+
+CLOUDINARY_CLOUD_NAME=dczi82rdn
+CLOUDINARY_API_KEY=724465519595527
+CLOUDINARY_API_SECRET=
+
+# pgAdmin
+PGADMIN_DEFAULT_EMAIL=admin@admin.com
+PGADMIN_DEFAULT_PASSWORD=admin
+PGADMIN_PORT=5050

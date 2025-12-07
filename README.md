@@ -6,7 +6,7 @@ API desenvolvida em **Node.js + TypeScript + Fastify + Prisma** para o projeto *
 
 ## 📚 Tecnologias Utilizadas
 
-- **Node.js** (v18+)
+- **Node.js** (v20+)
 - **Fastify** – framework HTTP rápido e leve
 - **TypeScript** – tipagem estática
 - **Prisma ORM** – acesso ao banco de dados PostgreSQL
@@ -15,7 +15,53 @@ API desenvolvida em **Node.js + TypeScript + Fastify + Prisma** para o projeto *
 - **Bcrypt** – hash de senhas
 - **Fastify Multer** – upload de arquivos
 - **Cloudinary** – armazenamento de imagens na nuvem
-- **Docker (opcional)** – ambiente containerizado
+- **Docker & Docker Compose** – ambiente containerizado
+
+---
+
+## 🐳 Deploy com Docker (Produção - Hostinger)
+
+### Deploy Automático via GitHub Actions
+
+1. Configure os secrets no GitHub (Settings > Secrets and variables > Actions):
+   - `SFTP_HOST`, `SFTP_USER`, `SFTP_PASSWORD`, `SFTP_PORT`, `SFTP_TARGET`
+   - Variáveis de ambiente: `DATABASE_URL`, `DB_USER`, `DB_PASSWORD`, etc.
+
+2. Push para a branch `main` dispara o deploy automaticamente
+
+### Deploy Manual no Servidor
+
+```bash
+# Clonar o repositório
+git clone https://github.com/seu-usuario/conecta-unifesspa-backend.git
+cd conecta-unifesspa-backend
+
+# Copiar e configurar variáveis de ambiente
+cp .env.production .env
+# Edite o .env com seus valores
+
+# Iniciar com Docker Compose
+./docker-deploy.sh start
+
+# Ou manualmente:
+docker compose up -d --build
+```
+
+### Comandos úteis de gerenciamento
+
+```bash
+./docker-deploy.sh start      # Inicia os containers
+./docker-deploy.sh stop       # Para os containers
+./docker-deploy.sh restart    # Reinicia os containers
+./docker-deploy.sh rebuild    # Reconstrói e reinicia
+./docker-deploy.sh logs       # Ver logs da aplicação
+./docker-deploy.sh status     # Status dos containers
+./docker-deploy.sh migrate    # Executa migrations
+./docker-deploy.sh backup-db  # Backup do banco
+./docker-deploy.sh update     # Atualiza do git e reconstrói
+```
+
+📖 Veja mais detalhes em [DEPLOY.md](./DEPLOY.md)
 
 ---
 
