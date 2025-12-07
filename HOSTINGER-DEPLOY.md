@@ -1,17 +1,187 @@
-# 🚀 Como Executar o Deploy na Hostinger
+# 🚀 Deploy Automático via SSH na Hostinger
 
-## Problema Identificado
-O GitHub Actions não consegue executar comandos SSH diretamente na Hostinger devido a restrições de conexão. A solução é fazer o upload dos arquivos via SFTP e executar o deploy manualmente no servidor.
+## ✅ Solução Implementada
 
-## Solução Implementada
+### Deploy 100% Automático via SSH
+- ✅ GitHub Actions conecta via SSH
+- ✅ Atualiza código via `git pull`
+- ✅ Cria arquivo `.env` automaticamente
+- ✅ Para containers antigos
+- ✅ Reconstrói e inicia containers Docker
+- ✅ Exibe logs e status
 
-### 1️⃣ O GitHub Actions faz:
-- ✅ Upload de todos os arquivos via SFTP
-- ✅ Cria o script `deploy-docker.sh` automaticamente
-- ✅ Envia o arquivo `.env` com as variáveis configuradas
+**Nenhuma ação manual necessária após configuração inicial!**
 
-### 2️⃣ Você precisa fazer no servidor:
-Executar o script de deploy manualmente (apenas uma vez após cada push)
+---
+
+## 🔧 Configuração Inicial (fazer apenas uma vez)
+
+### 1. Configurar Secrets no GitHub
+
+Acesse: **Settings > Secrets and variables > Actions > New repository secret**
+
+Configure os seguintes secrets:
+
+#### Conexão SSH
+- `SSH_HOST` - Endereço do servidor Hostinger
+- `SSH_USER` - Usuário SSH
+- `SSH_PASSWORD` - Senha SSH
+- `SSH_PORT` - Porta SSH (geralmente `22`)
+- `DEPLOY_PATH` - Caminho completo no servidor (ex: `/home/usuario/conecta-unifesspa-backend`)
+
+#### Aplicação
+- `DATABASE_URL` - `postgresql://postgres:senha@postgres-db:5432/conecta_unifesspa`
+- `DB_USER` - `postgres`
+- `DB_PASSWORD` - Senha segura do PostgreSQL
+- `DB_NAME` - `conecta_unifesspa`
+- `DB_PORT` - `5432`
+- `PORT` - `3333`
+- `JWT_SECRET` - Chave secreta JWT (gere uma aleatória)
+
+#### Opcionais
+- `PGADMIN_DEFAULT_EMAIL` - Email para pgAdmin
+- `PGADMIN_DEFAULT_PASSWORD` - Senha para pgAdmin
+- `PGADMIN_PORT` - `5050`
+
+---
+
+## 🚀 Configuração no Servidor Hostinger
+
+### 1. Acessar o Terminal SSH (hPanel)
+- Vá em: **Avançado** → **Terminal SSH** ou use um cliente SSH
+
+### 2. Clonar o repositório (primeira vez apenas)
+```bash
+# Navegar para o diretório home
+cd ~
+
+# Clonar o repositório
+git clone https://github.com/LuanAssis01/conecta-unifesspa-backend.git
+
+# Entrar no diretório
+cd conecta-unifesspa-backend
+```
+
+### 3. Verificar Docker
+```bash
+# Verificar se Docker está instalado
+docker --version
+docker compose version
+
+# Se não estiver, instalar
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
+sudo usermod -aG docker $USER
+# Fazer logout e login novamente
+```
+
+### 4. Primeiro Deploy Manual
+```bash
+# Executar o script de deploy
+chmod +x deploy-docker.sh
+./deploy-docker.sh
+```
+
+---
+
+## 🎯 Como Funciona o Deploy Automático
+
+Após a configuração inicial:
+
+1. **Você faz push** para a branch `main`
+   ```bash
+   git push origin main
+   ```
+
+2. **GitHub Actions automaticamente:**
+   - ✅ Conecta no servidor via SSH
+   - ✅ Faz `git pull` do código atualizado
+   - ✅ Atualiza o arquivo `.env`
+   - ✅ Para containers antigos
+   - ✅ Reconstrói e inicia containers Docker
+   - ✅ Exibe status e logs
+
+3. **Aplicação atualizada!** 🎉
+
+---
+
+## 📊 Monitoramento
+
+### Ver logs do último deploy
+Acesse: **Actions** no GitHub e veja os logs detalhados
+
+### Ver logs no servidor
+```bash
+ssh usuario@servidor
+cd ~/conecta-unifesspa-backend
+docker compose logs -f app
+```
+
+### Verificar status dos containers
+```bash
+docker compose ps
+```
+
+### Testar a API
+```bash
+curl http://localhost:3333/health
+```
+
+---
+
+## 🔍 Troubleshooting
+
+### Deploy falhou - Erro de conexão SSH
+- Verifique se `SSH_HOST`, `SSH_USER`, `SSH_PASSWORD` e `SSH_PORT` estão corretos
+- Teste conexão manual: `ssh usuario@servidor -p 22`
+
+### Deploy falhou - Git pull error
+```bash
+# No servidor, ajustar permissões
+cd ~/conecta-unifesspa-backend
+git config --global --add safe.directory $(pwd)
+```
+
+### Containers não iniciam
+```bash
+# Ver logs detalhados
+docker compose logs app
+docker compose logs postgres-db
+
+# Verificar arquivo .env
+cat .env
+```
+
+### Porta já em uso
+```bash
+# Ver o que está usando a porta
+sudo lsof -i :3333
+
+# Parar processo
+sudo kill -9 PID
+```
+
+---
+
+## 🆘 Comandos Úteis no Servidor
+
+```bash
+# Reiniciar apenas a aplicação
+docker compose restart app
+
+# Ver logs em tempo real
+docker compose logs -f app
+
+# Parar tudo
+docker compose down
+
+# Reconstruir do zero
+docker compose down -v
+docker compose up -d --build
+
+# Limpar espaço em disco
+docker system prune -af
+```
 
 ---
 

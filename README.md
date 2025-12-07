@@ -21,47 +21,64 @@ API desenvolvida em **Node.js + TypeScript + Fastify + Prisma** para o projeto *
 
 ## 🐳 Deploy com Docker (Produção - Hostinger)
 
-### Deploy Automático via GitHub Actions
+### Deploy Automático via GitHub Actions + SSH
 
-1. Configure os secrets no GitHub (Settings > Secrets and variables > Actions):
-   - `SFTP_HOST`, `SFTP_USER`, `SFTP_PASSWORD`, `SFTP_PORT`, `SFTP_TARGET`
-   - Variáveis de ambiente: `DATABASE_URL`, `DB_USER`, `DB_PASSWORD`, etc.
+O deploy é **100% automático** após configuração inicial!
 
-2. Push para a branch `main` dispara o deploy automaticamente
+#### 1️⃣ Configuração Inicial (uma vez apenas)
 
-### Deploy Manual no Servidor
+**No GitHub:**
+1. Configure os **secrets** necessários (veja [SECRETS-GITHUB.md](./SECRETS-GITHUB.md))
+   - SSH_HOST, SSH_USER, SSH_PASSWORD, SSH_PORT, DEPLOY_PATH
+   - DATABASE_URL, DB_USER, DB_PASSWORD, JWT_SECRET, etc.
 
+**No Servidor Hostinger:**
+1. Clone o repositório:
+   ```bash
+   git clone https://github.com/LuanAssis01/conecta-unifesspa-backend.git
+   cd conecta-unifesspa-backend
+   ```
+
+2. Verifique Docker:
+   ```bash
+   docker --version
+   docker compose version
+   ```
+
+3. Primeiro deploy:
+   ```bash
+   chmod +x deploy-docker.sh
+   ./deploy-docker.sh
+   ```
+
+#### 2️⃣ Próximos Deploys (Automático!)
+
+Apenas faça push para `main`:
 ```bash
-# Clonar o repositório
-git clone https://github.com/seu-usuario/conecta-unifesspa-backend.git
-cd conecta-unifesspa-backend
-
-# Copiar e configurar variáveis de ambiente
-cp .env.production .env
-# Edite o .env com seus valores
-
-# Iniciar com Docker Compose
-./docker-deploy.sh start
-
-# Ou manualmente:
-docker compose up -d --build
+git push origin main
 ```
 
-### Comandos úteis de gerenciamento
+O GitHub Actions vai automaticamente:
+- ✅ Conectar no servidor via SSH
+- ✅ Atualizar o código
+- ✅ Reconstruir os containers Docker
+- ✅ Reiniciar a aplicação
+
+### Documentação Completa
+
+- 📖 [HOSTINGER-DEPLOY.md](./HOSTINGER-DEPLOY.md) - Guia completo de deploy
+- 🔐 [SECRETS-GITHUB.md](./SECRETS-GITHUB.md) - Como configurar secrets
+- 📋 [DEPLOY.md](./DEPLOY.md) - Documentação detalhada
+
+### Comandos Úteis
 
 ```bash
 ./docker-deploy.sh start      # Inicia os containers
 ./docker-deploy.sh stop       # Para os containers
-./docker-deploy.sh restart    # Reinicia os containers
-./docker-deploy.sh rebuild    # Reconstrói e reinicia
 ./docker-deploy.sh logs       # Ver logs da aplicação
 ./docker-deploy.sh status     # Status dos containers
-./docker-deploy.sh migrate    # Executa migrations
 ./docker-deploy.sh backup-db  # Backup do banco
-./docker-deploy.sh update     # Atualiza do git e reconstrói
 ```
-
-📖 Veja mais detalhes em [DEPLOY.md](./DEPLOY.md)
 
 ---
 

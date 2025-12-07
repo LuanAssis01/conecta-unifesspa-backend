@@ -28,68 +28,61 @@ jobs:
           echo "PGADMIN_DEFAULT_PASSWORD=${{ secrets.PGADMIN_DEFAULT_PASSWORD }}" >> .env
           echo "PGADMIN_PORT=${{ secrets.PGADMIN_PORT }}" >> .env
 
-      - name: Create deployment script
-        run: |
-          cat > deploy-docker.sh << 'EOFSCRIPT'
-          #!/bin/bash
-          set -e
-          
-          echo "🚀 Iniciando deploy do Conecta Unifesspa..."
-          
-          # Navegar para o diretório do projeto
-          cd "$(dirname "$0")"
-          
-          # Verificar se Docker está instalado
-          if ! command -v docker &> /dev/null; then
-              echo "❌ Docker não está instalado!"
-              exit 1
-          fi
-          
-          # Parar containers antigos
-          echo "🛑 Parando containers antigos..."
-          docker compose down || true
-          
-          # Build e start dos containers
-          echo "🔨 Construindo e iniciando containers..."
-          docker compose up -d --build
-          
-          # Aguardar containers iniciarem
-          echo "⏳ Aguardando containers iniciarem..."
-          sleep 10
-          
-          # Verificar status
-          echo "📊 Status dos containers:"
-          docker compose ps
-          
-          # Verificar logs
-          echo "📋 Últimos logs:"
-          docker compose logs --tail=20 app
-          
-          echo "✅ Deploy concluído!"
-          EOFSCRIPT
-          
-          chmod +x deploy-docker.sh
-
-      - name: Deploy files to Hostinger via SFTP
-        uses: wlixcc/SFTP-Deploy-Action@v1.2.4
+      - name: Deploy via SSH and Docker
+        uses: appleboy/ssh-action@v1.0.3
         with:
-          username: ${{ secrets.SFTP_USER }}
-          server: ${{ secrets.SFTP_HOST }}
-          port: ${{ secrets.SFTP_PORT }}
-          password: ${{ secrets.SFTP_PASSWORD }}
-          local_path: "./"        
-          remote_path: ${{ secrets.SFTP_TARGET }}
-          sftp_only: true
-          delete_remote_files: false
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: ${{ secrets.SSH_PORT }}
+          script_stop: true
+          script: |
+            set -e
+            
+            echo "📂 Navegando para o diretório do projeto..."
+            cd ${{ secrets.DEPLOY_PATH }}
+            
+            echo "🔄 Atualizando código do repositório..."
+            git fetch origin
+            git reset --hard origin/main
+            git pull origin main
+            
+            echo "📝 Atualizando arquivo .env..."
+            cat > .env << EOF
+            DATABASE_URL=${{ secrets.DATABASE_URL }}
+            DB_USER=${{ secrets.DB_USER }}
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            DB_NAME=${{ secrets.DB_NAME }}
+            DB_PORT=${{ secrets.DB_PORT }}
+            DB_HOST=postgres-db
+            PORT=${{ secrets.PORT }}
+            NODE_ENV=production
+            JWT_SECRET=${{ secrets.JWT_SECRET }}
+            PGADMIN_DEFAULT_EMAIL=${{ secrets.PGADMIN_DEFAULT_EMAIL }}
+            PGADMIN_DEFAULT_PASSWORD=${{ secrets.PGADMIN_DEFAULT_PASSWORD }}
+            PGADMIN_PORT=${{ secrets.PGADMIN_PORT }}
+            EOF
+            
+            echo "🛑 Parando containers antigos..."
+            docker compose down || true
+            
+            echo "🔨 Construindo e iniciando containers..."
+            docker compose up -d --build
+            
+            echo "⏳ Aguardando containers iniciarem..."
+            sleep 15
+            
+            echo "📊 Status dos containers:"
+            docker compose ps
+            
+            echo "📋 Logs da aplicação:"
+            docker compose logs --tail=30 app
+            
+            echo "✅ Deploy concluído com sucesso!"
       
-      - name: Deployment Instructions
+      - name: Deployment Success
         run: |
-          echo "📦 Arquivos enviados com sucesso!"
-          echo ""
-          echo "⚠️  ATENÇÃO: Execute manualmente no servidor:"
-          echo "1. Conecte-se ao servidor via SSH/Terminal da Hostinger"
-          echo "2. Execute: cd ${{ secrets.SFTP_TARGET }}"
-          echo "3. Execute: ./deploy-docker.sh"
-          echo ""
-          echo "Ou configure um webhook/cron job para executar automaticamente."
+          echo "🎉 Deploy realizado com sucesso!"
+          echo "🌐 Aplicação rodando na porta ${{ secrets.PORT }}"
+          echo "📊 Verifique os logs acima para confirmar o status"
   
