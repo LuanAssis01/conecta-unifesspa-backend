@@ -1,4 +1,4 @@
-name: Deploy to Hostinger via SFTP
+name: Deploy to Hostinger via FTP
 
 on:
   push:
@@ -28,30 +28,36 @@ jobs:
           echo "PGADMIN_DEFAULT_PASSWORD=${{ secrets.PGADMIN_DEFAULT_PASSWORD }}" >> .env
           echo "PGADMIN_PORT=${{ secrets.PGADMIN_PORT }}" >> .env
 
-      - name: Deploy files to Hostinger via SFTP
-        uses: wlixcc/SFTP-Deploy-Action@v1.2.4
+      - name: Sync files via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
-          username: ${{ secrets.SFTP_USER }}
-          server: ${{ secrets.SFTP_HOST }}
-          port: ${{ secrets.SFTP_PORT }}
-          password: ${{ secrets.SFTP_PASSWORD }}
-          local_path: "./"
-          remote_path: ${{ secrets.SFTP_TARGET }}
-          sftp_only: true
-          delete_remote_files: false
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          server-dir: ${{ secrets.FTP_SERVER_DIR }}
+          protocol: ftps
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
+            **/data/**
+            **/volumes/**
+            **/dist/**
+            **/.DS_Store
       
       - name: Deployment Instructions
         run: |
-          echo "📦 Arquivos enviados com sucesso via SFTP!"
+          echo "📦 ✅ Arquivos enviados com sucesso via FTP!"
           echo ""
-          echo "⚠️  PRÓXIMOS PASSOS NO SERVIDOR:"
+          echo "⚠️  PRÓXIMO PASSO - Execute no servidor:"
           echo ""
           echo "1. Acesse o Terminal SSH no hPanel da Hostinger"
-          echo "2. Execute os comandos:"
-          echo "   cd ${{ secrets.SFTP_TARGET }}"
-          echo "   chmod +x deploy-docker.sh"
+          echo "2. Execute:"
+          echo "   cd ${{ secrets.FTP_SERVER_DIR }}"
+          echo "   chmod +x deploy-docker.sh docker-deploy.sh"
           echo "   ./deploy-docker.sh"
           echo ""
-          echo "💡 Ou configure um cron job para executar automaticamente"
-          echo "   */5 * * * * cd ${{ secrets.SFTP_TARGET }} && ./deploy-docker.sh >> /tmp/deploy.log 2>&1"
+          echo "🤖 AUTOMATIZAR (opcional):"
+          echo "Configure um Cron Job no hPanel:"
+          echo "   */10 * * * * cd ${{ secrets.FTP_SERVER_DIR }} && ./deploy-docker.sh >> /tmp/deploy.log 2>&1"
   

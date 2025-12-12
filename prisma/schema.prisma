@@ -7,7 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-/// ENUMS
 enum ProjectStatus {
   SUBMITTED
   APPROVED
@@ -24,11 +23,7 @@ enum AudienceEnum {
 enum UserRole {
   ADMIN
   TEACHER
-  USER_UNIFESSPA
-  USER_COMUNITY
 }
-
-/// MODELS
 
 model Project {
   id                    String        @id @default(uuid())
