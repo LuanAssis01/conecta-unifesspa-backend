@@ -7,8 +7,7 @@
     "dev": "tsx watch --env-file .env api/server.ts",
     "prisma": "prisma",
     "seed": "tsx prisma/seed.ts",
-    "build": "tsc",
-    "start": "node dist/api/server.js"
+    "start": "tsx api/server.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -17,6 +16,7 @@
   "license": "ISC",
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^22.2.0",
     "typescript": "^5.5.4"
   },

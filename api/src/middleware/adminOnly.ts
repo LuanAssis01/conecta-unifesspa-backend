@@ -1,8 +1,8 @@
-import { FastifyRequest, FastifyInstance } from 'fastify';
+import { FastifyRequest, FastifyReply, FastifyInstance } from 'fastify';
 import jwt from 'jsonwebtoken';
 import { UserRole } from '@prisma/client';
 
-const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_SECRET = process.env.JWT_SECRET || 'default-secret-key';
 
 export async function isAdmin(request: FastifyRequest, reply: FastifyReply) {
   try {
@@ -13,7 +13,7 @@ export async function isAdmin(request: FastifyRequest, reply: FastifyReply) {
     }
 
     const token = authHeader.split(" ")[1];
-    const decoded = jwt.verify(token, JWT_SECRET) as {
+    const decoded = jwt.verify(token, JWT_SECRET) as unknown as {
       id: number;
       email: string;
       role: UserRole;

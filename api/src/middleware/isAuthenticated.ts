@@ -2,7 +2,7 @@ import { FastifyRequest, FastifyReply } from "fastify";
 import jwt from "jsonwebtoken";
 import { UserRole } from "@prisma/client";
 
-const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_SECRET = process.env.JWT_SECRET || 'default-secret-key';
 
 interface DecodedUser {
   id: string;

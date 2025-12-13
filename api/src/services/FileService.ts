@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
-import { MultipartFile } from "fastify-multipart";
+import { MultipartFile } from "@fastify/multipart";
 
 
 export interface IFileService {
@@ -27,11 +27,11 @@ export class FileService implements IFileService {
     const uniqueName = crypto.randomUUID() + ext;
     const filePath = path.join(this.uploadFolder, uniqueName);
     
-    await new Promise((resolve, reject) => {
+    await new Promise<void>((resolve, reject) => {
       const writeStream = fs.createWriteStream(filePath);
       file.file
         .pipe(writeStream)
-        .on("finish", resolve)
+        .on("finish", () => resolve())
         .on("error", reject);
     });
 
@@ -45,11 +45,11 @@ export class FileService implements IFileService {
     const uniqueName = crypto.randomUUID() + ext;
     const filePath = path.join(this.photoUploadFolder, uniqueName);
     
-    await new Promise((resolve, reject) => {
+    await new Promise<void>((resolve, reject) => {
       const writeStream = fs.createWriteStream(filePath);
       file.file
         .pipe(writeStream)
-        .on("finish", resolve)
+        .on("finish", () => resolve())
         .on("error", reject);
     });
 
