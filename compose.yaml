@@ -6,11 +6,13 @@ services:
     container_name: conecta_unifesspa_api
     restart: always
     ports:
-      - "${PORT:-3333}:3333"
+      - "${PORT:-3000}:${PORT:-3000}"
     environment:
       DATABASE_URL: ${DATABASE_URL}
       NODE_ENV: production
+      PORT: ${PORT:-3000}
       JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN}
       CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME}
       CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY}
       CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}
@@ -19,7 +21,7 @@ services:
     volumes:
       - ./api/uploads:/app/api/uploads
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3333/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:${PORT:-3000}/health"]
       interval: 30s
       timeout: 10s
       retries: 3
