@@ -1,47 +1,36 @@
-import { FastifyRequest, FastifyReply } from 'fastify';
-import { prisma } from '../lib/prisma';
-import { UserRole } from "@prisma/client";
+import { FastifyRequest, FastifyReply } from "fastify";
+import { ZodError } from "zod";
+import {
+    impactService,
+    ProjectNotFoundError,
+    IndicatorNotFoundError,
+    IndicatorNotAssociatedError,
+    IndicatorAccessDeniedError,
+} from "../services/impactService";
+import {
+    CreateIndicatorsSchema,
+    UpdateIndicatorSchema,
+    ProjectIdParamSchema,
+    IndicatorIdParamSchema,
+} from "../valueObjects/impactIndicatorsValueObjects";
+
+const formatZodError = (error: ZodError): string => {
+    return error.issues.map((err) => err.message).join(", ");
+};
 
 export const impactIndicatorsController = {
     async create(request: FastifyRequest, reply: FastifyReply) {
         try {
-            const { projectId } = request.params as { projectId: string };
-            const { indicators } = request.body as {
-                indicators: Array<{ title: string; value: number }>;
-            };
+            const { projectId } = ProjectIdParamSchema.parse(request.params);
+            const { indicators } = CreateIndicatorsSchema.parse(request.body);
 
-            if (!indicators || !Array.isArray(indicators) || indicators.length === 0) {
-                return reply.status(400).send({ error: "Envie pelo menos um indicador" });
-            }
+            const { id: userId, role: userRole } = request.user;
 
-            const project = await prisma.project.findUnique({ 
-                where: { id: projectId },
-                select: { creatorId: true } // Seleciona apenas o criador
-            });
-            
-            if (!project) {
-                 return reply.status(404).send({ error: "Projeto não encontrado" });
-            }
-
-            const { id: userId, role: userRole } = (request as any).user;
-            const isCreator = project.creatorId === userId;
-            const isAdmin = userRole === UserRole.ADMIN;
-
-            if (!isCreator && !isAdmin) {
-                 return reply.status(403).send({ error: "Acesso negado. Apenas o criador ou administrador podem adicionar indicadores." });
-            }
-
-            const createdIndicators = await Promise.all(
-                indicators.map(ind =>
-                    prisma.impactIndicator.create({
-                        data: {
-                            id: crypto.randomUUID(),
-                            title: ind.title,
-                            value: ind.value,
-                            projectId,
-                        },
-                    })
-                )
+            const createdIndicators = await impactService.create(
+                projectId,
+                indicators,
+                userId,
+                userRole
             );
 
             return reply.status(201).send({
@@ -49,6 +38,15 @@ export const impactIndicatorsController = {
                 indicators: createdIndicators,
             });
         } catch (error) {
+            if (error instanceof ZodError) {
+                return reply.status(400).send({ error: formatZodError(error) });
+            }
+            if (error instanceof ProjectNotFoundError) {
+                return reply.status(404).send({ error: error.message });
+            }
+            if (error instanceof IndicatorAccessDeniedError) {
+                return reply.status(403).send({ error: error.message });
+            }
             console.error(error);
             return reply.status(500).send({ error: "Erro ao criar indicadores" });
         }
@@ -56,53 +54,56 @@ export const impactIndicatorsController = {
 
     async getAll(_: FastifyRequest, reply: FastifyReply) {
         try {
-            const indicators = await prisma.impactIndicator.findMany({ include: { project: true } });
+            const indicators = await impactService.getAll();
             return reply.status(200).send(indicators);
         } catch (error) {
             console.error(error);
-            return reply.status(500).send({ error: 'Erro ao buscar indicadores' });
+            return reply.status(500).send({ error: "Erro ao buscar indicadores" });
+        }
+    },
+
+    async getByProject(request: FastifyRequest, reply: FastifyReply) {
+        try {
+            const { projectId } = ProjectIdParamSchema.parse(request.params);
+
+            const indicators = await impactService.getByProject(projectId);
+
+            return reply.status(200).send(indicators);
+        } catch (error) {
+            if (error instanceof ZodError) {
+                return reply.status(400).send({ error: formatZodError(error) });
+            }
+            console.error(error);
+            return reply.status(500).send({ error: "Erro ao buscar indicadores do projeto" });
         }
     },
 
     async update(request: FastifyRequest, reply: FastifyReply) {
         try {
-            const { indicatorId } = request.params as { indicatorId: string };
-            const { title, value } = request.body as { title?: string; value?: number };
+            const { indicatorId } = IndicatorIdParamSchema.parse(request.params);
+            const data = UpdateIndicatorSchema.parse(request.body);
 
-            const indicatorWithProject = await prisma.impactIndicator.findUnique({
-                where: { id: indicatorId },
-                include: { project: { select: { creatorId: true } } }
-            });
+            const { id: userId, role: userRole } = request.user;
 
-            if (!indicatorWithProject) {
-                return reply.status(404).send({ error: "Indicador não encontrado" });
-            }
-
-            if (!indicatorWithProject.project) {
-                return reply.status(400).send({ error: "Indicador não associado a um projeto válido." });
-            }
-
-            const { id: userId, role: userRole } = (request as any).user;
-            const isCreator = indicatorWithProject.project.creatorId === userId;
-            const isAdmin = userRole === UserRole.ADMIN;
-
-            if (!isCreator && !isAdmin) {
-                 return reply.status(403).send({ error: "Acesso negado. Apenas o criador ou administrador podem atualizar indicadores." });
-            }
-
-            const indicator = await prisma.impactIndicator.update({
-                where: { id: indicatorId },
-                data: {
-                    title,
-                    value,
-                },
-            });
+            const indicator = await impactService.update(indicatorId, data, userId, userRole);
 
             return reply.status(200).send({
                 message: "Indicador de impacto atualizado com sucesso",
                 indicator,
             });
         } catch (error) {
+            if (error instanceof ZodError) {
+                return reply.status(400).send({ error: formatZodError(error) });
+            }
+            if (error instanceof IndicatorNotFoundError) {
+                return reply.status(404).send({ error: error.message });
+            }
+            if (error instanceof IndicatorNotAssociatedError) {
+                return reply.status(400).send({ error: error.message });
+            }
+            if (error instanceof IndicatorAccessDeniedError) {
+                return reply.status(403).send({ error: error.message });
+            }
             console.error(error);
             return reply.status(500).send({ error: "Erro ao atualizar indicador de impacto" });
         }
@@ -110,52 +111,28 @@ export const impactIndicatorsController = {
 
     async delete(request: FastifyRequest, reply: FastifyReply) {
         try {
-            const { indicatorId } = request.params as { indicatorId: string };
+            const { indicatorId } = IndicatorIdParamSchema.parse(request.params);
 
-            const indicatorWithProject = await prisma.impactIndicator.findUnique({
-                where: { id: indicatorId },
-                include: { project: { select: { creatorId: true } } }
-            });
+            const { id: userId, role: userRole } = request.user;
 
-            if (!indicatorWithProject) {
-                return reply.status(404).send({ error: "Indicador não encontrado" });
-            }
-
-            if (!indicatorWithProject.project) {
-                return reply.status(400).send({ error: "Indicador não associado a um projeto válido." });
-            }
-
-            const { id: userId, role: userRole } = (request as any).user;
-            const isCreator = indicatorWithProject.project.creatorId === userId;
-            const isAdmin = userRole === UserRole.ADMIN;
-
-            if (!isCreator && !isAdmin) {
-                 return reply.status(403).send({ error: "Acesso negado. Apenas o criador ou administrador podem deletar indicadores." });
-            }
-
-            await prisma.impactIndicator.delete({
-                where: { id: indicatorId },
-            });
+            await impactService.delete(indicatorId, userId, userRole);
 
             return reply.status(200).send({ message: "Indicador de impacto deletado com sucesso" });
         } catch (error) {
+            if (error instanceof ZodError) {
+                return reply.status(400).send({ error: formatZodError(error) });
+            }
+            if (error instanceof IndicatorNotFoundError) {
+                return reply.status(404).send({ error: error.message });
+            }
+            if (error instanceof IndicatorNotAssociatedError) {
+                return reply.status(400).send({ error: error.message });
+            }
+            if (error instanceof IndicatorAccessDeniedError) {
+                return reply.status(403).send({ error: error.message });
+            }
             console.error(error);
             return reply.status(500).send({ error: "Erro ao deletar indicador de impacto" });
-        }
-    },
-
-    async getByProject(request: FastifyRequest, reply: FastifyReply) {
-        try {
-            const { projectId } = request.params as { projectId: string };
-
-            const indicators = await prisma.impactIndicator.findMany({
-                where: { projectId },
-            });
-
-            return reply.status(200).send(indicators);
-        } catch (error) {
-            console.error(error);
-            return reply.status(500).send({ error: "Erro ao buscar indicadores do projeto" });
         }
     },
 };

@@ -1,57 +1,51 @@
-import { FastifyRequest, FastifyReply } from 'fastify';
-import { prisma } from '../lib/prisma';
-import { UserRole } from '@prisma/client';
+import { FastifyRequest, FastifyReply } from "fastify";
+import { ZodError } from "zod";
+import {
+    keywordsService,
+    ProjectNotFoundError,
+    KeywordNotFoundError,
+    KeywordAccessDeniedError,
+} from "../services/keywordsService";
+import {
+    CreateKeywordsSchema,
+    ProjectIdParamSchema,
+    KeywordIdParamSchema,
+    ProjectKeywordParamsSchema,
+} from "../valueObjects/keywordsValueObjects";
+
+const formatZodError = (error: ZodError): string => {
+    return error.issues.map((err: { message: any; }) => err.message).join(", ");
+};
 
 export const keywordsController = {
     async create(request: FastifyRequest, reply: FastifyReply) {
         try {
-            const { projectId } = request.params as { projectId: string };
-            const { keywords } = request.body as { keywords: string[] };
+            const { projectId } = ProjectIdParamSchema.parse(request.params);
+            const { keywords } = CreateKeywordsSchema.parse(request.body);
 
-            if (!keywords || !Array.isArray(keywords) || keywords.length === 0) {
-                return reply.status(400).send({ error: "Keywords são obrigatórias" });
-            }
+            const { id: userId, role: userRole } = request.user;
 
-            const project = await prisma.project.findUnique({ 
-                where: { id: projectId }, 
-                select: { creatorId: true } 
-            });
-
-            if (!project) return reply.status(404).send({ error: "Projeto não encontrado" });
-
-            const { id: userId, role: userRole } = (request as any).user;
-            const isCreator = project.creatorId === userId;
-            const isAdmin = userRole === UserRole.ADMIN;
-
-            if (!isCreator && !isAdmin) {
-                 return reply.status(403).send({ error: "Acesso negado. Apenas o criador ou administrador podem modificar as palavras-chave." });
-            }
-
-            const createdKeywords = [];
-
-            for (const keywordName of keywords) {
-                if (!keywordName || keywordName.trim() === "") continue;
-
-                const keyword = await prisma.keyword.upsert({
-                    where: { name: keywordName },
-                    update: {
-                        project: { connect: { id: projectId } },
-                    },
-                    create: {
-                        name: keywordName,
-                        project: { connect: { id: projectId } },
-                    },
-                });
-
-                createdKeywords.push(keyword);
-            }
+            const createdKeywords = await keywordsService.create(
+                projectId,
+                keywords,
+                userId,
+                userRole
+            );
 
             return reply.status(201).send({
                 message: "Palavras-chave associadas ao projeto com sucesso",
                 keywords: createdKeywords,
             });
-
         } catch (error) {
+            if (error instanceof ZodError) {
+                return reply.status(400).send({ error: formatZodError(error) });
+            }
+            if (error instanceof ProjectNotFoundError) {
+                return reply.status(404).send({ error: error.message });
+            }
+            if (error instanceof KeywordAccessDeniedError) {
+                return reply.status(403).send({ error: error.message });
+            }
             console.error(error);
             return reply.status(500).send({ error: "Erro ao criar palavra-chave" });
         }
@@ -59,7 +53,7 @@ export const keywordsController = {
 
     async getAll(_: FastifyRequest, reply: FastifyReply) {
         try {
-            const keywords = await prisma.keyword.findMany();
+            const keywords = await keywordsService.getAll();
             return reply.status(200).send(keywords);
         } catch (error) {
             console.error(error);
@@ -67,37 +61,17 @@ export const keywordsController = {
         }
     },
 
-    async removeFromProject(request: FastifyRequest, reply: FastifyReply) {
-        try {
-            const { projectId, keywordId } = request.params as { projectId: string; keywordId: string };
-
-            // Remove a associação (não deleta a keyword global)
-            await prisma.project.update({
-                where: { id: projectId },
-                data: {
-                    keywords: {
-                        disconnect: { id: keywordId },
-                    },
-                },
-            });
-
-            return reply.status(200).send({ message: "Palavra-chave removida do projeto com sucesso" });
-        } catch (error) {
-            console.error(error);
-            return reply.status(500).send({ error: "Erro ao remover palavra-chave" });
-        }
-    },
-
     async getByProject(request: FastifyRequest, reply: FastifyReply) {
         try {
-            const { projectId } = request.params as { projectId: string };
+            const { projectId } = ProjectIdParamSchema.parse(request.params);
 
-            const keywords = await prisma.keyword.findMany({
-                where: { project: { some: { id: projectId } } },
-            });
+            const keywords = await keywordsService.getByProject(projectId);
 
             return reply.status(200).send(keywords);
         } catch (error) {
+            if (error instanceof ZodError) {
+                return reply.status(400).send({ error: formatZodError(error) });
+            }
             console.error(error);
             return reply.status(500).send({ error: "Erro ao buscar palavras-chave do projeto" });
         }
@@ -105,21 +79,43 @@ export const keywordsController = {
 
     async getProjects(request: FastifyRequest, reply: FastifyReply) {
         try {
-            const { keywordId } = request.params as { keywordId: string };
+            const { keywordId } = KeywordIdParamSchema.parse(request.params);
 
-            const keyword = await prisma.keyword.findUnique({
-                where: { id: keywordId },
-                include: {
-                    project: true, // pega todos os projetos associados
-                },
-            });
+            const projects = await keywordsService.getProjectsByKeyword(keywordId);
 
-            if (!keyword) return reply.status(404).send({ error: "Keyword não encontrada" });
-
-            return reply.status(200).send(keyword.project);
+            return reply.status(200).send(projects);
         } catch (error) {
+            if (error instanceof ZodError) {
+                return reply.status(400).send({ error: formatZodError(error) });
+            }
+            if (error instanceof KeywordNotFoundError) {
+                return reply.status(404).send({ error: error.message });
+            }
             console.error(error);
             return reply.status(500).send({ error: "Erro ao buscar projetos da keyword" });
         }
-    }
+    },
+
+    async removeFromProject(request: FastifyRequest, reply: FastifyReply) {
+        try {
+            const { projectId, keywordId } = ProjectKeywordParamsSchema.parse(request.params);
+            const { id: userId, role: userRole } = request.user;
+
+            await keywordsService.removeFromProject(projectId, keywordId, userId, userRole);
+
+            return reply.status(200).send({ message: "Palavra-chave removida do projeto com sucesso" });
+        } catch (error) {
+            if (error instanceof ZodError) {
+                return reply.status(400).send({ error: formatZodError(error) });
+            }
+            if (error instanceof ProjectNotFoundError) {
+                return reply.status(404).send({ error: error.message });
+            }
+            if (error instanceof KeywordAccessDeniedError) {
+                return reply.status(403).send({ error: error.message });
+            }
+            console.error(error);
+            return reply.status(500).send({ error: "Erro ao remover palavra-chave" });
+        }
+    },
 };

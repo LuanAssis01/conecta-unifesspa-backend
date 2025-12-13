@@ -1,65 +1,87 @@
-import { FastifyRequest, FastifyReply } from 'fastify';
-import { prisma } from '../lib/prisma';
+import { FastifyRequest, FastifyReply } from "fastify";
+import { ZodError } from "zod";
+import {
+    courseService,
+    CourseNotFoundError,
+    CourseAlreadyExistsError,
+} from "../services/courseService";
+import {
+    CreateCourseSchema,
+    CourseIdParamSchema,
+} from "../valueObjects/courseValueObjects";
+
+const formatZodError = (error: ZodError): string => {
+    return error.issues.map((issue) => issue.message).join(", ");
+};
 
 export const courseController = {
     async create(request: FastifyRequest, reply: FastifyReply) {
         try {
-            const { name } = request.body as { name: string };
+            const data = CreateCourseSchema.parse(request.body);
 
-            if (!name) {
-                return reply.status(400).send({ error: 'Nome do curso é obrigatório' });
-            }
+            const course = await courseService.create(data);
 
-            const existingCourse = await prisma.course.findFirst({ where: { name } });
-
-            if (existingCourse) {
-                return reply.status(409).send({ error: 'Já existe um curso com esse nome' });
-            }
-
-            const course = await prisma.course.create({ data: { name } });
-            return reply.status(201).send({ message: 'Curso criado com sucesso', course });
+            return reply.status(201).send({
+                message: "Curso criado com sucesso",
+                course,
+            });
         } catch (error) {
+            if (error instanceof ZodError) {
+                return reply.status(400).send({ error: formatZodError(error) });
+            }
+            if (error instanceof CourseAlreadyExistsError) {
+                return reply.status(409).send({ error: error.message });
+            }
             console.error(error);
-            return reply.status(500).send({ error: 'Erro ao criar curso' });
+            return reply.status(500).send({ error: "Erro ao criar curso" });
         }
     },
 
     async getAll(_: FastifyRequest, reply: FastifyReply) {
         try {
-            const courses = await prisma.course.findMany();
+            const courses = await courseService.getAll();
             return reply.status(200).send(courses);
         } catch (error) {
             console.error(error);
-            return reply.status(500).send({ error: 'Erro ao buscar cursos' });
+            return reply.status(500).send({ error: "Erro ao buscar cursos" });
         }
     },
 
     async getById(request: FastifyRequest, reply: FastifyReply) {
         try {
-            const { id } = request.params as { id: string };
+            const { id } = CourseIdParamSchema.parse(request.params);
 
-            const course = await prisma.course.findUnique({ where: { id } });
-            if (!course) return reply.status(404).send({ error: 'Curso não encontrado' });
+            const course = await courseService.getById(id);
 
             return reply.status(200).send(course);
         } catch (error) {
+            if (error instanceof ZodError) {
+                return reply.status(400).send({ error: formatZodError(error) });
+            }
+            if (error instanceof CourseNotFoundError) {
+                return reply.status(404).send({ error: error.message });
+            }
             console.error(error);
-            return reply.status(500).send({ error: 'Erro ao buscar curso' });
+            return reply.status(500).send({ error: "Erro ao buscar curso" });
         }
     },
 
     async delete(request: FastifyRequest, reply: FastifyReply) {
         try {
-            const { id } = request.params as { id: string };
+            const { id } = CourseIdParamSchema.parse(request.params);
 
-            const course = await prisma.course.findUnique({ where: { id } });
-            if (!course) return reply.status(404).send({ error: 'Curso não encontrado' });
+            await courseService.delete(id);
 
-            await prisma.course.delete({ where: { id } });
-            return reply.status(200).send({ message: 'Curso deletado com sucesso' });
+            return reply.status(200).send({ message: "Curso deletado com sucesso" });
         } catch (error) {
+            if (error instanceof ZodError) {
+                return reply.status(400).send({ error: formatZodError(error) });
+            }
+            if (error instanceof CourseNotFoundError) {
+                return reply.status(404).send({ error: error.message });
+            }
             console.error(error);
-            return reply.status(500).send({ error: 'Erro ao deletar curso' });
+            return reply.status(500).send({ error: "Erro ao deletar curso" });
         }
     },
 };
