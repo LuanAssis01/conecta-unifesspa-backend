@@ -4,9 +4,10 @@
   "description": "Back-End unifesspa+",
   "main": "index.js",
   "scripts": {
-    "start": "tsx watch --env-file .env api/server.ts",
+    "dev": "tsx watch --env-file .env api/server.ts",
     "prisma": "prisma",
-    "seed": "tsx prisma/seed.ts"
+    "seed": "tsx prisma/seed.ts",
+    "start": "node --import tsx api/server.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
