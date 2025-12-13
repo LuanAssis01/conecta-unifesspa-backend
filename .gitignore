@@ -39,3 +39,5 @@ build
 # Backups
 *.sql
 backup_*
+.vercel
+.env*.local

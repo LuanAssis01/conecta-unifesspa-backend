@@ -1,6 +1,7 @@
 {
-  "scripts": {
-    "build": "prisma generate",
-    "dev": "vercel dev"
+  "functions": {
+    "api/**/*.ts": {
+      "runtime": "nodejs20.x"
+    }
   }
 }
