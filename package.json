@@ -4,8 +4,9 @@
   "description": "Back-End unifesspa+",
   "main": "index.js",
   "scripts": {
-    "build": "prisma generate",
-    "postinstall": "prisma generate || true"
+    "dev": "tsx watch --env-file .env api/server.ts",
+    "prisma": "prisma",
+    "seed": "tsx prisma/seed.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
