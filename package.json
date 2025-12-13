@@ -8,8 +8,7 @@
     "start": "node --import tsx api/server.ts",
     "build": "prisma generate",
     "prisma": "prisma",
-    "seed": "tsx prisma/seed.ts",
-    "vercel-build": "prisma generate"
+    "seed": "tsx prisma/seed.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
