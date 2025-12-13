@@ -15,6 +15,17 @@ server.register(cors, {
 server.register(multipart, {
   limits: { fileSize: 10 * 1024 * 1024 }, // até 10 MB
 });
+
+// Health check endpoint
+server.get('/health', async (_req, reply) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    return reply.send({ status: 'ok', database: 'connected' });
+  } catch {
+    return reply.status(503).send({ status: 'error', database: 'disconnected' });
+  }
+});
+
 server.register(appRoutes);
 
 const start = async () => {
