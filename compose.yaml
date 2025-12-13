@@ -9,6 +9,7 @@ services:
       - "${PORT:-3000}:${PORT:-3000}"
     environment:
       DATABASE_URL: ${DATABASE_URL}
+      DIRECT_URL: ${DIRECT_URL}
       NODE_ENV: production
       PORT: ${PORT:-3000}
       JWT_SECRET: ${JWT_SECRET}
