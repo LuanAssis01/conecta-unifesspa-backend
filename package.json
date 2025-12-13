@@ -7,7 +7,8 @@
     "dev": "tsx watch --env-file .env api/server.ts",
     "prisma": "prisma",
     "seed": "tsx prisma/seed.ts",
-    "start": "node --import tsx api/server.ts"
+    "build": "tsc",
+    "start": "node dist/api/server.js"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
