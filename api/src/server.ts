@@ -1,8 +1,8 @@
 import Fastify from 'fastify'
 import cors from '@fastify/cors'
-import { appRoutes } from './src/router/index'
+import { appRoutes } from './router/index'
 import multipart from '@fastify/multipart'
-import { prisma } from './src/lib/prisma'
+import { prisma } from './lib/prisma'
 
 const server = Fastify({
   logger: true,
