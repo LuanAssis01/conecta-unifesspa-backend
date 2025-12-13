@@ -4,7 +4,8 @@
   "description": "Back-End unifesspa+",
   "main": "index.js",
   "scripts": {
-    "build": "prisma generate"
+    "build": "prisma generate",
+    "vercel-build": "prisma generate"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
