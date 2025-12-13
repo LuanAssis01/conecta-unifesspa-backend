@@ -4,11 +4,8 @@
   "description": "Back-End unifesspa+",
   "main": "index.js",
   "scripts": {
-    "dev": "tsx watch --env-file .env api/server.ts",
-    "start": "node --import tsx api/server.ts",
     "build": "prisma generate",
-    "prisma": "prisma",
-    "seed": "tsx prisma/seed.ts"
+    "dev": "vercel dev"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -24,6 +21,7 @@
     "@fastify/cors": "^11.1.0",
     "@fastify/multipart": "^9.2.1",
     "@prisma/client": "^6.16.2",
+    "@vercel/node": "^5.5.15",
     "axios": "^1.13.1",
     "bcrypt": "^6.0.0",
     "cloudinary": "^1.37.2",
