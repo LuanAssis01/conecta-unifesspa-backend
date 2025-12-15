@@ -12,9 +12,10 @@ import {
   UpdateProjectInput,
   ProjectFilters,
 } from "../valueObjects/projectValueObjec";
+import { clear } from "console";
 
 const DEFAULT_STATUS: ProjectStatus = "SUBMITTED";
-const EDITABLE_STATUSES: ProjectStatus[] = ["APPROVED", "ACTIVE"];
+const EDITABLE_STATUSES: ProjectStatus[] = ["SUBMITTED", "REJECTED", "APPROVED", "ACTIVE"];
 const PUBLIC_STATUSES: ProjectStatus[] = ["ACTIVE", "FINISHED"];
 export class ProjectNotFoundError extends Error {
   constructor(message = "Projeto não encontrado") {

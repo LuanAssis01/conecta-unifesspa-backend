@@ -10,6 +10,7 @@ const server = Fastify({
 
 server.register(cors, {
   origin: "*",
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
 });
 
 server.register(multipart, {
