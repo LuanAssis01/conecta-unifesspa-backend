@@ -27,7 +27,7 @@
     "@vercel/node": "^5.5.15",
     "axios": "^1.13.1",
     "bcrypt": "^6.0.0",
-    "cloudinary": "^1.37.2",
+    "cloudinary": "^1.41.3",
     "cors": "^2.8.5",
     "fastify": "^5.6.0",
     "fastify-multer": "^2.0.3",
